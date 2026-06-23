@@ -13,3 +13,17 @@ config.local.yaml
 .claude/
 /assets/
 .mcp.json
+
+# Swift / SPM / Xcode
+.build/
+.swiftpm/
+Timeout.app/
+Resources/AppIcon.iconset/
+DerivedData/
+build/
+*.xcuserstate
+*.xcuserdata
+*.moved-aside
+Timeout.xcodeproj/xcuserdata/
+Timeout.xcodeproj/project.xcworkspace/xcuserdata/
+Package.resolved

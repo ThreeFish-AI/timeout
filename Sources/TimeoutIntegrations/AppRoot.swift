@@ -82,15 +82,18 @@ final public class AppRoot {
         }
         self.heartbeat = heartbeat
 
-        settingsController = SettingsWindowController { [weak self] newConfig in
-            guard let self else { return }
-            if let store = self.configStore {
-                do { try store.saveConfig(newConfig) }
-                catch { NSLog("[Timeout] 配置保存失败：\(error.localizedDescription)") }
-            }
-            self.engine?.updateConfig(newConfig)
-            NSLog("[Timeout] 配置已应用：\(newConfig.workWindows.count) 个工作窗口 / 工作 \(Int(newConfig.workIntervalSeconds/60))min / 休息 \(Int(newConfig.restDurationSeconds/60))min")
-        }
+        settingsController = SettingsWindowController(
+            onApply: { [weak self] newConfig in
+                guard let self else { return }
+                if let store = self.configStore {
+                    do { try store.saveConfig(newConfig) }
+                    catch { NSLog("[Timeout] 配置保存失败：\(error.localizedDescription)") }
+                }
+                self.engine?.updateConfig(newConfig)
+                NSLog("[Timeout] 配置已应用：\(newConfig.workWindows.count) 个工作窗口 / 工作 \(Int(newConfig.workIntervalSeconds/60))min / 休息 \(Int(newConfig.restDurationSeconds/60))min / 白噪音\(newConfig.ambientSoundEnabled ? "开" : "关") / QQ音乐\(newConfig.controlQQMusic ? "开" : "关")")
+            },
+            onToggleLogin: { LoginService.setEnabled($0) }
+        )
 
         registerSleepObservers()
         NSLog("[Timeout] 引擎启动 phase=\(engine.state.phase.rawValue) accum=\(Int(engine.state.workAccumulatedSeconds))s")
@@ -115,7 +118,7 @@ final public class AppRoot {
 
     func openSettings() {
         guard let config = engine?.config else { return }
-        settingsController?.show(currentConfig: config)
+        settingsController?.show(currentConfig: config, loginEnabled: LoginService.isEnabled)
     }
 
     // MARK: - 调试配置
@@ -152,15 +155,15 @@ final public class AppRoot {
         switch phase {
         case .working:
             let remain = max(0, engine.config.workIntervalSeconds - engine.state.workAccumulatedSeconds)
-            return "工作 \(Int(ceil(remain / 60)))′"
+            return "Work \(Int(ceil(remain / 60)))′"
         case .resting:
-            guard let start = engine.state.restStartedAt else { return "休息中" }
+            guard let start = engine.state.restStartedAt else { return "Break" }
             let deadline = start.addingTimeInterval(engine.config.restDurationSeconds)
             let remain = max(0, deadline.timeIntervalSince(Date()))
-            return "休息 \(Int(ceil(remain / 60)))′"
-        case .inMeeting: return "会议中"
-        case .idle: return "暂停"
-        case .offDuty: return "下班"
+            return "Break \(Int(ceil(remain / 60)))′"
+        case .inMeeting: return "Meeting"
+        case .idle: return "Paused"
+        case .offDuty: return "Off"
         }
     }
 

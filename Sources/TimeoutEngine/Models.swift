@@ -50,7 +50,7 @@ public struct WorkWindow: Codable, Equatable, Hashable, Sendable {
 // MARK: - 一日计划配置
 
 public struct DayPlanConfig: Codable, Equatable, Sendable {
-    public static let currentSchemaVersion = 1
+    public static let currentSchemaVersion = 2
 
     public var schemaVersion: Int
     public var workWindows: [WorkWindow]
@@ -60,6 +60,10 @@ public struct DayPlanConfig: Codable, Equatable, Sendable {
     public var restDurationSeconds: TimeInterval
     /// 系统空闲超过此值视为 AFK，暂停累加（秒），默认 180。
     public var afkThresholdSeconds: TimeInterval
+    /// 休息时播放内置粉噪音（AVAudioEngine 合成，零音频文件、不依赖外部播放器），默认开。
+    public var ambientSoundEnabled: Bool
+    /// 休息时经 CGEvent 媒体键联动 QQ 音乐（需安装并授权辅助功能），默认开。
+    public var controlQQMusic: Bool
 
     public init(
         schemaVersion: Int = DayPlanConfig.currentSchemaVersion,
@@ -69,16 +73,39 @@ public struct DayPlanConfig: Codable, Equatable, Sendable {
         ],
         workIntervalSeconds: TimeInterval = 50 * 60,
         restDurationSeconds: TimeInterval = 10 * 60,
-        afkThresholdSeconds: TimeInterval = 180
+        afkThresholdSeconds: TimeInterval = 180,
+        ambientSoundEnabled: Bool = true,
+        controlQQMusic: Bool = true
     ) {
         self.schemaVersion = schemaVersion
         self.workWindows = workWindows
         self.workIntervalSeconds = workIntervalSeconds
         self.restDurationSeconds = restDurationSeconds
         self.afkThresholdSeconds = afkThresholdSeconds
+        self.ambientSoundEnabled = ambientSoundEnabled
+        self.controlQQMusic = controlQQMusic
     }
 
     public static var defaultConfig: DayPlanConfig { DayPlanConfig() }
+
+    // MARK: - Codable（容错解码：旧 schema 配置缺字段时用默认值兜底，保证平滑迁移不丢失）
+
+    private enum CodingKeys: String, CodingKey {
+        case schemaVersion, workWindows, workIntervalSeconds, restDurationSeconds
+        case afkThresholdSeconds, ambientSoundEnabled, controlQQMusic
+    }
+
+    public init(from decoder: Decoder) throws {
+        let d = DayPlanConfig.defaultConfig          // 单一事实源：默认值取自 memberwise init
+        let c = try decoder.container(keyedBy: CodingKeys.self)
+        schemaVersion = try c.decodeIfPresent(Int.self, forKey: .schemaVersion) ?? d.schemaVersion
+        workWindows = try c.decodeIfPresent([WorkWindow].self, forKey: .workWindows) ?? d.workWindows
+        workIntervalSeconds = try c.decodeIfPresent(TimeInterval.self, forKey: .workIntervalSeconds) ?? d.workIntervalSeconds
+        restDurationSeconds = try c.decodeIfPresent(TimeInterval.self, forKey: .restDurationSeconds) ?? d.restDurationSeconds
+        afkThresholdSeconds = try c.decodeIfPresent(TimeInterval.self, forKey: .afkThresholdSeconds) ?? d.afkThresholdSeconds
+        ambientSoundEnabled = try c.decodeIfPresent(Bool.self, forKey: .ambientSoundEnabled) ?? true
+        controlQQMusic = try c.decodeIfPresent(Bool.self, forKey: .controlQQMusic) ?? true
+    }
 }
 
 // MARK: - 会议时间线

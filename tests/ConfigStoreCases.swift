@@ -68,4 +68,33 @@ func runConfigStoreCases() {
         try! raw.write(to: dir.appendingPathComponent("config.json"))
         expectEqual(store.loadConfig(), DayPlanConfig.defaultConfig, "未来版本应回退默认")
     }
+
+    test("schema 迁移：旧 v1 config 缺新字段 → 平滑迁移补默认，原配置保留") {
+        let dir = makeTempDir()
+        let store = try! ConfigStore(directory: dir)
+        // 用当前编码器生成正确的 WorkWindow/TimeOfDay JSON 形态，再删新字段模拟旧版 v1 config
+        let seed = DayPlanConfig(
+            schemaVersion: 1,
+            workWindows: [WorkWindow(start: TimeOfDay(hours: 10), end: TimeOfDay(hours: 11))],
+            workIntervalSeconds: 2400,
+            restDurationSeconds: 480,
+            afkThresholdSeconds: 240
+        )
+        try! store.saveConfig(seed)
+        let cfgURL = dir.appendingPathComponent("config.json")
+        var json = try! JSONSerialization.jsonObject(with: Data(contentsOf: cfgURL)) as! [String: Any]
+        json.removeValue(forKey: "ambientSoundEnabled")   // 模拟旧版缺失
+        json.removeValue(forKey: "controlQQMusic")
+        json["schemaVersion"] = 1
+        let rewritten = try! JSONSerialization.data(withJSONObject: json, options: [.prettyPrinted])
+        try! rewritten.write(to: cfgURL)
+
+        let loaded = store.loadConfig()
+        expectEqual(loaded.schemaVersion, 2, "迁移后版本号应规范化为当前版本 2")
+        expectEqual(loaded.workIntervalSeconds, 2400, "原工作时长应保留")
+        expectEqual(loaded.afkThresholdSeconds, 240, "原 AFK 阈值应保留")
+        expectEqual(loaded.workWindows.count, 1, "原工作窗口应保留")
+        expectEqual(loaded.ambientSoundEnabled, true, "缺失的 ambientSoundEnabled 应补默认 true")
+        expectEqual(loaded.controlQQMusic, true, "缺失的 controlQQMusic 应补默认 true")
+    }
 }

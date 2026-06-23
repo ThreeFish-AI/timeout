@@ -34,6 +34,7 @@ public final class LiveTimeoutEngine {
         self.systemState = systemState
         self.config = config
         self.state = initialState ?? EngineState(phase: .offDuty, lastTickAt: clock.now())
+        music.updateConfig(config)   // 同步音乐相关配置（粉噪音 / QQ 音乐开关）给播放器
     }
 
     public func setPersistHandler(_ handler: @escaping (EngineState) -> Void) {
@@ -132,8 +133,9 @@ public final class LiveTimeoutEngine {
         NSLog("[Timeout] 用户触发立即休息（无视工作窗口）")
     }
 
-    /// 设置 UI 应用新配置（工作窗口/间隔）。
+    /// 设置 UI 应用新配置（工作窗口/间隔/音乐开关）。
     public func updateConfig(_ newConfig: DayPlanConfig) {
         config = newConfig
+        music.updateConfig(newConfig)   // 热更新音乐播放器配置
     }
 }

@@ -22,6 +22,8 @@ final class MockOverlay: OverlayController {
 final class MockMusic: MusicController {
     var startCount = 0
     var pauseCount = 0
+    var lastConfig: DayPlanConfig?
+    func updateConfig(_ config: DayPlanConfig) { lastConfig = config }
     func startPlayback() { startCount += 1 }
     func pausePlayback() { pauseCount += 1 }
 }
@@ -294,6 +296,10 @@ func runEngineWiringCases() {
         runTicks(engine, clock: clock, seconds: m(5))  // 累计到 15min > 8min
         expectEqual(engine.state.phase, .resting, "新间隔 8min 应已触发休息")
         expectEqual(overlay.showCount, 1)
+
+        // 接线验证：init 与 updateConfig 均应同步音乐配置到播放器
+        expect(music.lastConfig != nil, "init 后应已同步配置到播放器")
+        expectEqual(music.lastConfig?.workIntervalSeconds, m(8), "updateConfig 应热同步到播放器")
     }
 }
 

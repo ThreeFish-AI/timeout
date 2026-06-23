@@ -26,6 +26,10 @@
 | 调度核心（FSM + evaluate 纯函数） | `Sources/TimeoutEngine/Engine.swift` |
 | 引擎接线 + sleep/wake + fast-forward | `Sources/TimeoutEngine/LiveTimeoutEngine.swift` |
 | 多屏遮罩 + 软强制 Esc | `Sources/TimeoutIntegrations/Overlay/LiveOverlayController.swift` |
-| QQ 音乐 CGEvent 媒体键 | `Sources/TimeoutIntegrations/LiveMusicController.swift` |
+| 休息音效（粉噪音 + QQ 音乐联动） | `Sources/TimeoutIntegrations/LiveMusicController.swift` + `AmbientSoundPlayer.swift` |
+| 内置粉噪音合成（AVAudioEngine） | `Sources/TimeoutIntegrations/AmbientSoundPlayer.swift` |
+| 设置界面（一般/工作时段/节律/休息音效） | `Sources/TimeoutIntegrations/Settings/SettingsView.swift` |
+| 应用图标生成脚本（leaf.fill + squircle） | `scripts/generate_icon.swift` |
+| 配置 schema 迁移（容错解码） | `Sources/TimeoutEngine/Models.swift` + `ConfigStore.swift` |
 | Google 日历 EventKit 门控 | `Sources/TimeoutIntegrations/LiveCalendarProvider.swift` |
-| .app 装配 + 签名 | `Makefile` |
+| .app 装配 + 图标生成 + 签名 | `Makefile` |

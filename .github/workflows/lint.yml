@@ -69,7 +69,7 @@ jobs:
           set -euo pipefail
           for f in README.md docs/timeout-design.md .agents/browser-validation.md; do
             npx -y -p @mermaid-js/mermaid-cli mmdc -i "$f" -o "/tmp/$(basename "$f" .md).svg" \
-              -c .github/mmdc-puppeteer-config.json
+              -p .github/mmdc-puppeteer-config.json
           done
 
   knowledge-map:

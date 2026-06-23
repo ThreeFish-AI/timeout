@@ -111,12 +111,16 @@ public final class LiveTimeoutEngine {
     }
 
     /// 用户在遮罩内 Esc 二次确认提前结束休息。
+    /// 与 tick（:72-73）共享同一不变量：离开 .resting 即清除 forcedRest。
+    /// 否则「立即休息」入口进入休息后 Esc，下个 tick 见 forcedRest 残留仍 true，
+    /// transition 会无视一切重进 .resting 并重置倒计时 → 死循环无法退出。
     public func requestEarlyRestExit() {
         guard state.phase == .resting else { return }
         let oldPhase = state.phase
         state.workAccumulatedSeconds = 0
         state.restStartedAt = nil
         state.phase = .working
+        forcedRest = false  // 离开 .resting 必清强制标志（与 tick 对齐），杜绝下个 tick 重拉回休息
         let eff = sideEffects(from: oldPhase, to: state.phase)
         if eff.dismissOverlay { overlay.dismiss() }
         if eff.pauseMusic { music.pausePlayback() }

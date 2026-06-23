@@ -184,18 +184,18 @@ func runEngineWiringCases() {
         expectEqual(engine.state.lastTickAt, t0.addingTimeInterval(1800))
     }
 
-    // requestEarlyRestExit：Esc 二次确认提前结束休息
-    test("Esc 提前结束休息：暂停音乐 + 退出遮罩 + 累加器归零") {
+    // requestEarlyRestExit：Esc 二次确认提前结束休息（自然触发，forcedRest=false）
+    test("Esc 提前结束休息：暂停音乐 + 退出遮罩 + 累加器归零 + 退出后不重进") {
         let t0 = Date(timeIntervalSince1970: 0)
         let clock = MockClock(t0)
         let overlay = MockOverlay(), music = MockMusic(), calProv = StubCalendar(), sys = MockSystemState()
         let engine = LiveTimeoutEngine(
             clock: clock, calendar: utcCalendar(), calendarProvider: calProv,
             overlay: overlay, music: music, systemState: sys,
-            config: fullDayConfig(interval: m(2), rest: m(10)),
+            config: fullDayConfig(interval: m(50), rest: m(10)),
             initialState: EngineState(phase: .working, lastTickAt: t0)
         )
-        runTicks(engine, clock: clock, seconds: m(2))  // → 触发休息
+        runTicks(engine, clock: clock, seconds: m(50))  // → 自然触发休息（forcedRest=false）
         expectEqual(engine.state.phase, .resting)
         expectEqual(overlay.showCount, 1)
 
@@ -204,6 +204,43 @@ func runEngineWiringCases() {
         expectEqual(overlay.dismissCount, 1)
         expectEqual(music.pauseCount, 1)
         expect(approx(engine.state.workAccumulatedSeconds, 0, 0.001))
+
+        // 退出后再 tick，断言不被重拉回休息（自然触发本应稳定，锁死回归）
+        let showBefore = overlay.showCount
+        runTicks(engine, clock: clock, seconds: m(5))  // 累加器从 0 续增，5min < 50min
+        expectEqual(engine.state.phase, .working, "Esc 退出后不应重进休息")
+        expectEqual(overlay.showCount, showBefore, "不应重复显示遮罩")
+    }
+
+    // Bug2 回归：经「立即休息」入口（forcedRest=true）Esc 提前结束，须清 forcedRest，否则下个 tick 重进休息死循环
+    test("立即休息下 Esc 提前结束：清除 forcedRest，下个 tick 不重进休息") {
+        let t0 = Date(timeIntervalSince1970: 0)
+        let clock = MockClock(t0)
+        let overlay = MockOverlay(), music = MockMusic(), calProv = StubCalendar(), sys = MockSystemState()
+        let engine = LiveTimeoutEngine(
+            clock: clock, calendar: utcCalendar(), calendarProvider: calProv,
+            overlay: overlay, music: music, systemState: sys,
+            config: fullDayConfig(interval: m(50), rest: m(10)),
+            initialState: EngineState(phase: .working, lastTickAt: t0)
+        )
+
+        engine.forceRestNow()                            // 关键：经「立即休息」入口（forcedRest=true）
+        runTicks(engine, clock: clock, seconds: 2)       // 下个 tick 即进休息
+        expectEqual(engine.state.phase, .resting, "forceRestNow 应进入休息")
+        expectEqual(overlay.showCount, 1)
+
+        engine.requestEarlyRestExit()
+        expectEqual(engine.state.phase, .working)
+        expectEqual(overlay.dismissCount, 1)
+
+        // 关键：再 tick——修复前 forcedRest 残留 → transition:99 重进 resting → overlay 再弹（死循环）
+        runTicks(engine, clock: clock, seconds: 2)
+        expectEqual(engine.state.phase, .working, "Bug2：Esc 退出后不应重进休息（forcedRest 须清除）")
+        expectEqual(overlay.showCount, 1, "修复前=2（死循环重弹），修复后=1")
+
+        runTicks(engine, clock: clock, seconds: m(5))    // 继续多 tick 确认稳定
+        expectEqual(engine.state.phase, .working)
+        expectEqual(overlay.showCount, 1, "持续稳定在 working，无死循环")
     }
 
     // 立即休息：无视工作窗口（offDuty 下强制进入休息，且休息期间不被 offDuty 中断）

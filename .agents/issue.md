@@ -46,3 +46,18 @@
 - **处理方式**：改用 Swift Package Manager（`Package.swift` 三目标）+ `Makefile` 手工装配 `.app`（`Contents/MacOS` + `Info.plist` + `PkgInfo` + `codesign` ad-hoc + Hardened Runtime + entitlements + `xattr` 清 quarantine）。比 `.xcodeproj` 更简约，且 `codesign`/`notarytool` 随 CLT 可用。
 - **后续防范**：公开分发时用 Developer ID + `notarytool` + `stapler`（Makefile 已预留注释）；个人用 ad-hoc 即可。
 - **同类影响**：任何无 Xcode 的 macOS 应用构建。
+
+## #6 休息模式 Esc 退出失效（对话框被遮罩遮挡 + forcedRest 残留死循环）
+
+- **表因**：(a) 休息遮罩下按 Esc，确认对话框不可见，Esc 退出永远无反应；(b)（经菜单「立即休息」进入休息后）即便能触发「直接退出」，遮罩消失后约 1 秒重新出现并重置 10 分钟倒计时，永远无法退出。
+- **根因**：
+  - (a) `LiveOverlayController` 遮罩面板 `level=CGShieldingWindowLevel()`（≈2147483628，窗口层级最高）；确认用 `NSAlert.runModal()`，其模态窗默认 `level=NSModalPanelWindowLevel`（=8）≪ 遮罩，对话框渲染在遮罩之下不可见；且 `runModal` 阻塞主线程但按钮不可达。`OverlayPanel.canBecomeMain=false` 进一步使 NSAlert 模态 session 不稳。
+  - (b) `LiveTimeoutEngine.requestEarlyRestExit()` 设 `phase=.working` 但**未清除 `forcedRest`**；该标志唯一清除点是 `tick()` 内（`oldPhase==.resting && s.phase!=.resting`），而 `requestEarlyRestExit` 绕过了 tick 路径。下个 tick 的 `transition` 纯函数见非休息态且 `forcedRest==true`，无视一切重进 `.resting` 并设新 `restStartedAt=now`（新倒计时）→ 死循环。仅「立即休息」入口触发（自然触发的休息 `forcedRest=false`，Esc 退出正常）。
+- **处理方式**：
+  - (a) 弃用 NSAlert，确认 UI 改为**内嵌遮罩 SwiftUI 视图**（新增 `OverlayViewModel: ObservableObject`，`@Published isConfirming` 驱动倒计时态/确认态切换），与遮罩同层级，从根上消除遮挡；非阻塞、不依赖 main window、多屏一致；Esc 双语义（倒计时态→进入确认，确认态→取消返回倒计时）；主屏 panel `makeKeyAndOrderFront` 使 Button 可接收点击/回车。
+  - (b) `requestEarlyRestExit()` 加 `forcedRest = false`，与 tick 共享「离开 .resting 即清 forcedRest」不变量。配回归测试（`forceRestNow`→`requestEarlyRestExit`→再 tick，断言 `overlay.showCount` 修复前=2/后=1，phase 保持 working）。
+- **后续防范**：
+  - CGShieldingWindowLevel 遮罩下任何需用户交互的 UI，必须**内嵌于遮罩面板内部**（同层级），禁用 NSAlert / 独立普通窗口（会被遮挡）。
+  - 任何**绕过 tick 直接修改 state 的路径**（`requestEarlyRestExit`/`handleSleep`/`handleWake`/`fastForward`/`forceRestNow`/`updateConfig`）必须与 tick 的状态不变量逐一对齐（本次即 forcedRest 清除）；新增此类路径时审查是否复现「标志残留被下个周期 tick 拉回」模式。
+  - 回归测试须覆盖「用户主动操作 + 后续 tick」组合，而非只断言操作瞬间的状态（原盲点：`requestEarlyRestExit` 后不再 tick）。
+- **同类影响**：任何「全屏置顶遮罩 + 弹窗交互」「一次性意图标志 + 周期 FSM 决策」混合架构的应用；(b) 的 forcedRest 残留模式可推广到所有「一次性意图标志 + 周期 tick」组合。

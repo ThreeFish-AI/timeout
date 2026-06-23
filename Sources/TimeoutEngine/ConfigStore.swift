@@ -63,12 +63,15 @@ public final class ConfigStore {
         try data.write(to: url, options: .atomic)  // 原子写，防半写损坏
     }
 
-    /// schema 迁移：未来版本号升级时在此逐级迁移；高于本版本则回退默认。
+    /// schema 迁移：高于本版本则回退默认；否则规范化 schemaVersion 为当前版本
+    /// （解码层 init(from:) 已对缺失字段容错补默认，故此处无需逐字段迁移分支）。
     private func migrate(_ config: DayPlanConfig) -> DayPlanConfig {
         guard config.schemaVersion <= DayPlanConfig.currentSchemaVersion else {
             NSLog("[Timeout] config schemaVersion(\(config.schemaVersion)) 高于本版本(\(DayPlanConfig.currentSchemaVersion))，回退默认")
             return .defaultConfig
         }
-        return config
+        var c = config
+        c.schemaVersion = DayPlanConfig.currentSchemaVersion  // 规范化为当前版本，下次落盘即升级
+        return c
     }
 }

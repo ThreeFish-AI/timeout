@@ -18,6 +18,7 @@ config.local.yaml
 .build/
 .swiftpm/
 Timeout.app/
+Resources/AppIcon.iconset/
 DerivedData/
 build/
 *.xcuserstate

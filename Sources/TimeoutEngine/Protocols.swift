@@ -22,11 +22,13 @@ public protocol OverlayController: AnyObject {
     var isShown: Bool { get }
 }
 
-/// 音乐控制器：CGEvent 媒体键控制 QQ 音乐。
+/// 音乐控制器：休息音效（内置粉噪音 + 可选 QQ 音乐媒体键联动）。
 public protocol MusicController: AnyObject {
-    /// 进入休息：启动/恢复 QQ 音乐播放。
+    /// 同步音乐相关配置（由引擎在初始化与 updateConfig 时调用）。
+    func updateConfig(_ config: DayPlanConfig)
+    /// 进入休息：按配置播放内置粉噪音 / 联动 QQ 音乐。
     func startPlayback()
-    /// 离开休息：发送暂停媒体键（toggle），保留队列/进度。
+    /// 离开休息：停止粉噪音 + 发送暂停媒体键（幂等）。
     func pausePlayback()
 }
 

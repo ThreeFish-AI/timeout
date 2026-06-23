@@ -9,8 +9,11 @@ BIN         := $(BUILD_DIR)/$(CONFIG)/$(APP_NAME)
 APP_BUNDLE  := $(APP_NAME).app
 ENTITLEMENTS:= Resources/TimeoutRelease.entitlements
 INFO_PLIST  := Resources/Info.plist
+ICON_SCRIPT := scripts/generate_icon.swift
+ICONSET     := Resources/AppIcon.iconset
+ICON_ICNS   := Resources/AppIcon.icns
 
-.PHONY: all build app run test test-integration clean sign run-debug
+.PHONY: all build app icon run test test-integration clean sign run-debug
 
 all: app
 
@@ -18,14 +21,21 @@ all: app
 build:
 	swift build -c $(CONFIG)
 
+## 生成 AppIcon.icns（leaf.fill + 渐变 squircle，方案 A：teal 背景 + 白叶）
+icon:
+	@echo "==> 生成图标（方案 A）"
+	@swift $(ICON_SCRIPT) A
+	@iconutil -c icns $(ICONSET) -o $(ICON_ICNS)
+
 ## 装配 Timeout.app 并 ad-hoc 签名（Hardened Runtime + entitlements）
-app: build
+app: build icon
 	@echo "==> 装配 $(APP_BUNDLE)"
 	@rm -rf $(APP_BUNDLE)
 	@mkdir -p $(APP_BUNDLE)/Contents/MacOS
 	@mkdir -p $(APP_BUNDLE)/Contents/Resources
 	@cp $(BIN) $(APP_BUNDLE)/Contents/MacOS/$(APP_NAME)
 	@cp $(INFO_PLIST) $(APP_BUNDLE)/Contents/Info.plist
+	@cp $(ICON_ICNS) $(APP_BUNDLE)/Contents/Resources/AppIcon.icns
 	@printf 'APPL????' > $(APP_BUNDLE)/Contents/PkgInfo
 	@echo "==> ad-hoc 签名（Hardened Runtime + entitlements）"
 	@codesign --force --deep --options runtime --entitlements $(ENTITLEMENTS) -s - $(APP_BUNDLE)
@@ -50,7 +60,7 @@ test-integration:
 
 clean:
 	swift package clean
-	rm -rf $(APP_BUNDLE)
+	rm -rf $(APP_BUNDLE) $(ICONSET)
 
 # === 公开分发（需 Developer ID 证书，按需取消注释） ===
 # archive-release:

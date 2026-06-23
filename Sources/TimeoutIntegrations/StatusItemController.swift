@@ -1,7 +1,7 @@
 import AppKit
 
 /// 菜单栏状态项控制器（AppKit：NSStatusItem 无 SwiftUI 对等物）。
-/// 图标 + 倒计时标题 + 下拉菜单（立即休息 / 开机自启 / 退出）。
+/// 状态文案 + 倒计时 + 下拉菜单（立即休息 / 开机自启 / 退出）。
 final class StatusItemController {
     private let statusItem: NSStatusItem
     private let onForceRest: () -> Void
@@ -16,17 +16,7 @@ final class StatusItemController {
         self.onSetLaunchAtLogin = onSetLaunchAtLogin
         self.onOpenSettings = onOpenSettings
         statusItem = NSStatusBar.system.statusItem(withLength: NSStatusItem.variableLength)
-        configureButton()
         configureMenu(loginEnabled: loginEnabled)
-    }
-
-    private func configureButton() {
-        guard let button = statusItem.button else { return }
-        let config = NSImage.SymbolConfiguration(pointSize: 14, weight: .regular)
-        let symbol = NSImage(systemSymbolName: "hourglass", accessibilityDescription: "Timeout")?
-            .withSymbolConfiguration(config)
-        button.image = symbol
-        button.image?.isTemplate = true
     }
 
     private func configureMenu(loginEnabled: Bool) {

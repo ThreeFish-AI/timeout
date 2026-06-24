@@ -1,0 +1,35 @@
+{
+  "$comment": "evaluate 谓词优先级黄金用例（镜像 tests/EvaluateCases.swift · P1-P5 + 不变量）。snapshot.now 不参与决策故省略；activeMeeting.start/end 为 Unix epoch 秒。任一端 runner 失败即阻断 CI，从机制上消除 FSM 决策漂移。",
+  "cases": [
+    {
+      "name": "P1 offDuty 压过一切（即便 AFK + 会议 + 达阈值）",
+      "snapshot": { "inWorkWindow": false, "isAFK": true, "isAsleep": false, "activeMeeting": { "start": 1000, "end": 2000 }, "workAccumulatedSeconds": 30000, "workIntervalSeconds": 3000 },
+      "expected": "offDuty"
+    },
+    {
+      "name": "P2 idle 压过会议与达阈值",
+      "snapshot": { "inWorkWindow": true, "isAFK": true, "isAsleep": false, "activeMeeting": { "start": 1000, "end": 2000 }, "workAccumulatedSeconds": 30000, "workIntervalSeconds": 3000 },
+      "expected": "idle"
+    },
+    {
+      "name": "P3 会议压过达阈值（推迟休息）",
+      "snapshot": { "inWorkWindow": true, "isAFK": false, "isAsleep": false, "activeMeeting": { "start": 1000, "end": 2000 }, "workAccumulatedSeconds": 6000, "workIntervalSeconds": 3000 },
+      "expected": "inMeeting"
+    },
+    {
+      "name": "P4 达阈值触发休息",
+      "snapshot": { "inWorkWindow": true, "isAFK": false, "isAsleep": false, "activeMeeting": null, "workAccumulatedSeconds": 3000, "workIntervalSeconds": 3000 },
+      "expected": "resting"
+    },
+    {
+      "name": "P5 默认 working",
+      "snapshot": { "inWorkWindow": true, "isAFK": false, "isAsleep": false, "activeMeeting": null, "workAccumulatedSeconds": 2999, "workIntervalSeconds": 3000 },
+      "expected": "working"
+    },
+    {
+      "name": "休息不变量：达阈值但有会议 → 不 resting",
+      "snapshot": { "inWorkWindow": true, "isAFK": false, "isAsleep": false, "activeMeeting": { "start": 1000, "end": 2000 }, "workAccumulatedSeconds": 15000, "workIntervalSeconds": 3000 },
+      "expectedNot": "resting"
+    }
+  ]
+}

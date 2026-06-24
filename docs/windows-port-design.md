@@ -14,9 +14,9 @@ Timeout 当前为纯 Swift（SPM，macOS 14+）实现，采用三目标正交分
 维护者希望：在 GitHub Release 页同时提供 macOS 与 Windows 两套安装包，让不同 OS 用户自行选择。本方案的循证结论如下：
 
 > **结论 1（Q2 可行性）**：**无法「顺便」编译 Windows 版**。Swift 语言本身可在 Windows 上官方编译<sup>[[1]](#ref1)</sup>，但 `TimeoutIntegrations` 依赖的 AppKit / CoreGraphics / EventKit / AVFoundation 等 Apple 专有框架在 Windows 上**物理不存在**（逐项已验证），`import AppKit` 在 Windows 工具链直接编译失败。
-
+>
 > **结论 2（Q2 务实路径）**：唯一可行的跨平台资产是纯 Foundation 的 `TimeoutEngine`。完整 Windows 桌面应用须**重写（非移植）整个集成层**，推荐 **C#/.NET 8 WPF 原生重写 + 共享纯逻辑核心**，工作量集中在一个核心难点——全屏强制遮罩。
-
+>
 > **结论 3（Q1 macOS 发布）**：与 Windows 移植解耦。macOS 发布链路已就绪（`release.yml`，打 tag 即发布），详见 [README §构建与运行](../README.md#构建与运行)与本仓库 commit `fix(release)` 的 `--timestamp` 修复。
 
 ## 2. 跨平台不可行性循证
@@ -215,6 +215,30 @@ flowchart LR
 | **Phase 3** | 日历门控（Graph API + Google Calendar API） | 会议推迟休息对齐 | 两套 OAuth，工作量中等 |
 | **Phase 4** | CI 多平台 Release（§7）+ Windows 代码签名 | GitHub Release 双 asset | 含签名证书采购决策 |
 
+### 10.1 实现进展：Phase 0 已落地（2026-06）
+
+Phase 0 已实现并通过双端验证，作为 Windows 移植的首块基石：
+
+- **[`windows/TimeoutEngine/`](../windows/TimeoutEngine/)**（.NET 8 类库）：C# 1:1 重写纯核心 8 文件（`Models/` + `Engine.cs` + `LiveTimeoutEngine.cs` + `ConfigStore.cs` + `Protocols.cs` + `_JsonConverters.cs`），镜像 `Sources/TimeoutEngine/` 的 FSM 语义，零第三方依赖；
+- **[`shared/`](../shared/)**（跨平台单一事实源）：[`config.schema.json`](../shared/config.schema.json) + [`test-fixtures/`](../shared/test-fixtures/) 四份黄金 fixture（evaluate/advance/side-effects/merge-busy），统一用 Unix epoch 整数秒编码，规避两端时间格式差异；
+- **[`windows/TimeoutEngine.CSharpTests/`](../windows/TimeoutEngine.CSharpTests/)**（xUnit）：A 层 fixture 驱动 + B 层镜像，**25 测试全绿**（60ms），覆盖 P1-P5 谓词优先级、advance 限幅、休息生命周期四分支、会议 abort-and-reset、forcedRest Bug2 回归、ConfigStore schema 迁移；Swift 端回归 **34 全绿**，确认 `Sources/` 零改动无回归；
+- **[`.github/workflows/ci.yml`](../.github/workflows/ci.yml)**：新增 `dotnet-test`（阻断型）+ `swift-core-smoke`（探针、`continue-on-error` 非阻断）两个 windows-latest job。
+
+> **黄金测试策略（务实混合，非全 JSON 化）**：纯函数走 JSON fixture（机器保证 FSM 决策不漂移，任一端失败即阻断 CI）；多 tick 时序场景走镜像测试（以 Swift 用例名为锚点人工对照，`Simulator`/`Mock` 辅助类忠实重写）。Swift `Sources/` **永不改动**——C# 是平行重写。
+
+### 10.2 实现进展：Phase 1 已落地（2026-06）
+
+Phase 1（最小可运行 Windows 壳，无遮罩）已实现，验证策略为 **纯 CI（windows-latest）**——开发机 macOS 无法本地运行 Windows-only 代码。核心设计是**分层把不可本地验证的代码压到最小**：
+
+- **[`windows/TimeoutEngine.Win32/`](../windows/TimeoutEngine.Win32/)（net8.0）**：`[DllImport]` 声明（`GetLastInputInfo`/`GetTickCount64`/`SendInput`，元数据 net8.0 可编译）+ [`PinkNoiseGenerator`](../windows/TimeoutEngine.Win32/PinkNoiseGenerator.cs)（Paul Kellet 逐字移植 `AmbientSoundPlayer`）+ mockable 集成逻辑（`MediaKeySender`/`Win32IdleProbe`/`QqMusicDetector`，抽 `ISendInputPort`/`IProcessNameProvider` 隔离 native 调用）；
+- **[`windows/TimeoutEngine.Win32Tests/`](../windows/TimeoutEngine.Win32Tests/)（net8.0 xUnit，12 测试 macOS 本地全绿）**：粉噪音保真（Goertzel 单频功率/RMS/淡入/循环无点击）+ 空闲 49.7 天 64 位回绕 + 媒体键 down+up 序列；
+- **[`windows/TimeoutShell/`](../windows/TimeoutShell/)（net8.0-windows WPF 壳，CI-only）**：6 个 interface 的 Phase 1 实现（`NoopOverlayController` 占位 / `WasapiAmbientPlayer`(NAudio) / `MusicController`(粉噪音+QQ音乐媒体键) / `WindowsSystemState` / `EmptyCalendarProvider` / `HeartbeatTimer`）+ [`TrayController`](../windows/TimeoutShell/Tray/TrayController.cs)(H.NotifyIcon) + [`PowerEventBridge`](../windows/TimeoutShell/Power/PowerEventBridge.cs) + [`RegistryAutostart`](../windows/TimeoutShell/Autostart/RegistryAutostart.cs)；
+- **[`.github/workflows/ci.yml`](../.github/workflows/ci.yml)** 三层验证：**L1** 双平台 `dotnet-test`(windows) + `dotnet-test-mac`(macos-14) 跑 net8.0 测试（37 测试，证明真跨平台）；**L2** `dotnet-build-shell` 编译+publish WPF 壳；**L3** `dotnet-smoke-shell` headless 烟测（`TIMEOUT_HEADLESS` 跳过托盘/WASAPI，`TIMEOUT_DEBUG` 极速配置触发相位转移）。
+
+> **诚实披露（CI 能证 / 不能证）**：L1-L3 能证「壳启动不崩 + 引擎装配闭环 + 配置落盘 %APPDATA% + P/Invoke 声明 JIT 执行无 EntryPointNotFound」。**不能证**：托盘图标可见（CI 无 explorer shell）、WASAPI 出声（无设备）、媒体键触发 QQ 音乐（无 QQ 音乐/Now Playing）、全屏遮罩（Phase 2）——这些归用户 Windows 真机验收。QQ 音乐候选进程名（`QQMusic`/`QQMusicTray`）需用户实测校准。
+>
+> **依赖**：粉噪音自写 Kellet（对齐 macOS + 零依赖 + 可测）；NAudio 2.2.1（壳内 WASAPI 播放）；H.NotifyIcon.Wpf 2.2.0（壳内托盘）。均不污染 net8.0 工程。toggle 语义继承（`VK_MEDIA_PLAY_PAUSE` 与 macOS `NX_KEYTYPE_PLAY` 同构，正在播时发键反暂停是已知限制）。下一阶段见 §10 Phase 2（全屏强制遮罩，§5 核心难点）。
+>
 > **评估建议**：Phase 0–1 风险可控、可独立交付价值，建议先行以验证整体可行性；Phase 2（全屏遮罩）是「继续投入 vs 放弃 Windows」的真正决策点——其妥协（taskbar 偶现、SAS 逃生）是否可接受，决定了 Windows 版能否达到与 macOS 版同等的「软强制」体验。
 
 ## References
@@ -243,4 +267,4 @@ flowchart LR
 
 <a id="ref12"></a>[12] Stack Overflow, "Win32 full screen and hiding the taskbar," *stackoverflow.com*, 2024. [Online]. Available: https://stackoverflow.com/questions/2382464/win32-full-screen-and-hiding-taskbar
 
-<a id="ref13"></a>[13] Microsoft, "Code Signing Certificates and SmartScreen Reputation," *Microsoft Learn*, 2024. [Online]. Available: https://learn.microsoft.com/windows/security/application-security/application-control/app-control-for-business/deployment/manage-trust
+<a id="ref13"></a>[13] Microsoft, "SmartScreen reputation for Windows app developers," *Microsoft Learn*, 2025. [Online]. Available: https://learn.microsoft.com/en-us/windows/apps/package-and-deploy/smartscreen-reputation

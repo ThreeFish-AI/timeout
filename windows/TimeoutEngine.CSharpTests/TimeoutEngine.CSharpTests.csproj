@@ -1,0 +1,35 @@
+<Project Sdk="Microsoft.NET.Sdk">
+
+  <!-- Timeout · Windows 移植 Phase 0 · xUnit 测试项目。
+       A 层：JSON fixture 驱动黄金测试（读 ../../shared/test-fixtures/*.json）。
+       B 层：镜像 tests/ 时序场景（Simulator + LiveTimeoutEngine 接线 + ConfigStore）。 -->
+  <PropertyGroup>
+    <TargetFramework>net8.0</TargetFramework>
+    <ImplicitUsings>enable</ImplicitUsings>
+    <Nullable>enable</Nullable>
+    <LangVersion>latest</LangVersion>
+    <IsPackable>false</IsPackable>
+    <IsTestProject>true</IsTestProject>
+    <RootNamespace>TimeoutEngine.Tests</RootNamespace>
+    <AssemblyName>TimeoutEngine.CSharpTests</AssemblyName>
+  </PropertyGroup>
+
+  <ItemGroup>
+    <PackageReference Include="Microsoft.NET.Test.Sdk" Version="17.11.1" />
+    <PackageReference Include="xunit" Version="2.9.2" />
+    <PackageReference Include="xunit.runner.visualstudio" Version="2.8.2">
+      <IncludeAssets>runtime; build; native; contentfiles; analyzers; buildtransitive</IncludeAssets>
+      <PrivateAssets>private</PrivateAssets>
+    </PackageReference>
+  </ItemGroup>
+
+  <ItemGroup>
+    <ProjectReference Include="..\TimeoutEngine\TimeoutEngine.csproj" />
+  </ItemGroup>
+
+  <!-- 共享黄金 fixture 复制到输出目录，运行时经 AppContext.BaseDirectory/shared/*.json 读取。 -->
+  <ItemGroup>
+    <None Include="..\..\shared\test-fixtures\*.json" CopyToOutputDirectory="PreserveNewest" Link="shared\%(Filename)%(Extension)" />
+  </ItemGroup>
+
+</Project>

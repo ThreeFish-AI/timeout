@@ -1,0 +1,32 @@
+{
+  "$comment": "advance 累加器推进黄金用例（镜像 tests/EvaluateCases.swift · advance 系列）。lastTickAt/to 为 Unix epoch 秒整数；浮点累加器按 ±0.001 容差比对。",
+  "cases": [
+    {
+      "name": "U10 advance 限幅异常 tick（delta=3600 限为 60）",
+      "initial": { "phase": "working", "lastTickAt": 0 },
+      "to": 3600,
+      "maxDelta": 60,
+      "active": true,
+      "expectWorkAccum": 60,
+      "expectLastTickAt": 3600
+    },
+    {
+      "name": "advance resting 冻结累加器",
+      "initial": { "phase": "resting", "workAccumulatedSeconds": 100, "lastTickAt": 0 },
+      "to": 30,
+      "maxDelta": 60,
+      "active": true,
+      "expectWorkAccum": 100,
+      "expectLastTickAt": 30
+    },
+    {
+      "name": "advance 负 delta 夹紧为 0",
+      "initial": { "phase": "working", "lastTickAt": 100 },
+      "to": 50,
+      "maxDelta": 60,
+      "active": true,
+      "expectWorkAccum": 0,
+      "expectLastTickAt": 50
+    }
+  ]
+}

@@ -1,0 +1,35 @@
+{
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "$id": "./config.schema.json",
+  "title": "Timeout DayPlanConfig",
+  "description": "Timeout 跨平台一日计划配置权威定义。Swift Codable 与 C# System.Text.Json 双向兼容；容错解码（缺字段补默认）+ schema 迁移见 docs/windows-port-design.md §6。TimeOfDay 序列化为裸整数（自午夜秒），EnginePhase 序列化为 camelCase 字符串。",
+  "type": "object",
+  "additionalProperties": false,
+  "required": ["schemaVersion", "workWindows", "workIntervalSeconds", "restDurationSeconds", "afkThresholdSeconds"],
+  "properties": {
+    "schemaVersion": {
+      "type": "integer",
+      "description": "配置 schema 版本。当前为 2；高于此版本两端回退默认，低于则规范化后升级。",
+      "const": 2
+    },
+    "workWindows": {
+      "type": "array",
+      "description": "工作时段列表，支持跨午夜。",
+      "default": [{ "start": 32400, "end": 43200 }, { "start": 49200, "end": 64800 }],
+      "items": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": ["start", "end"],
+        "properties": {
+          "start": { "type": "integer", "minimum": 0, "maximum": 86399, "description": "自午夜起的秒数 [0,86400)" },
+          "end": { "type": "integer", "minimum": 0, "maximum": 86399, "description": "自午夜起的秒数 [0,86400)；start>end 表示跨午夜" }
+        }
+      }
+    },
+    "workIntervalSeconds": { "type": "number", "default": 3000, "minimum": 0, "description": "触发休息的工作累计阈值（秒），默认 50 分钟" },
+    "restDurationSeconds": { "type": "number", "default": 600, "minimum": 0, "description": "单次休息时长（秒），默认 10 分钟" },
+    "afkThresholdSeconds": { "type": "number", "default": 180, "minimum": 0, "description": "系统空闲超过此值视为 AFK，暂停累加（秒），默认 180" },
+    "ambientSoundEnabled": { "type": "boolean", "default": true, "description": "休息时播放内置粉噪音，默认开" },
+    "controlQQMusic": { "type": "boolean", "default": true, "description": "休息时联动 QQ 音乐媒体键，默认开" }
+  }
+}

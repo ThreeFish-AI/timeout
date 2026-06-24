@@ -1,0 +1,23 @@
+{
+  "$comment": "mergeBusyIntervals 区间合并黄金用例（镜像 tests/EvaluateCases.swift · U13 系列）。start/end 为 Unix epoch 秒；半开区间端点相接（gap=0）应合并。",
+  "cases": [
+    {
+      "name": "U13 重叠与间隙",
+      "input": [{ "start": 10, "end": 30 }, { "start": 20, "end": 40 }, { "start": 45, "end": 50 }],
+      "mergeGap": 0,
+      "expected": [{ "start": 10, "end": 40 }, { "start": 45, "end": 50 }]
+    },
+    {
+      "name": "背靠背端点相接合并（半开区间 30 端点）",
+      "input": [{ "start": 0, "end": 30 }, { "start": 30, "end": 60 }],
+      "mergeGap": 0,
+      "expected": [{ "start": 0, "end": 60 }]
+    },
+    {
+      "name": "空列表",
+      "input": [],
+      "mergeGap": 0,
+      "expected": []
+    }
+  ]
+}

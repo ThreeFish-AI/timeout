@@ -151,7 +151,9 @@ macOS 是当前主版本。Windows 版采用 **C#/.NET 8 WPF 重写**（非 Swif
 
 - **Phase 0 ✅**：`windows/TimeoutEngine/` C# 重写纯核心 + `shared/` 黄金 fixture（两端共用同一份 JSON 保证 FSM 不漂移），xUnit 25 + Swift 34 双端全绿。
 - **Phase 1 ✅**：`windows/TimeoutEngine.Win32/`（net8.0 互操作层，12 测试 macOS 本地可验证）+ `windows/TimeoutShell/`（net8.0-windows WPF 最小壳：NAudio 粉噪音 + SendInput 媒体键 + H.NotifyIcon 托盘）。**验证靠 CI**（macOS 无法运行 Windows-only 代码）：L1 双平台 net8.0 测试、L2 壳编译、L3 headless 烟测。
-- **Phase 2 ⏳**：全屏强制遮罩（核心难点，§5 妥协设计）；**Phase 3** 日历门控（Graph API）；**Phase 4** CI 多平台 Release + 代码签名。
+- **Phase 2 ✅**：全屏强制遮罩（`WS_EX_TOPMOST` + `WH_KEYBOARD_LL` soft-force + Esc 双语义，§5 妥协设计）；CI 验证接入闭环，真实覆盖/键盘拦截/Esc 双语义归真机验收。
+- **Phase 3 ✅**：日历门控（Microsoft Graph + MSAL 设备码 + 条件注入降级，解析层/缓存/Provider mock 可测）；OAuth 授权与真实会议数据归 Windows 真机验收（CI 无账户）。
+- **Phase 4 ✅**：CI 多平台 Release（`release.yml` 3-job matrix，打 tag 即同时发布 macOS + Windows 双 asset）；Windows 暂无签名（SmartScreen 告知，签名留后续 Azure Trusted Signing/证书单独 workflow）。
 
 **Windows 构建**（需 Windows + .NET 8 SDK，macOS 无法编译 WPF 工程）：
 
@@ -161,7 +163,7 @@ dotnet publish windows/TimeoutShell/TimeoutShell.csproj -c Release -r win-x64 --
 .\publish\TimeoutShell.exe
 ```
 
-配置文件：`%APPDATA%\com.aurelius.timeout\`（与 macOS 同 schema）。**Phase 1 诚实限制**：托盘图标、粉噪音出声、QQ 音乐联动需在 Windows 真机验收（CI 无 explorer shell/音频设备/QQ 音乐）；全屏遮罩待 Phase 2。
+配置文件：`%APPDATA%\com.aurelius.timeout\`（与 macOS 同 schema）。**真机验收限制**：托盘图标、粉噪音出声、QQ 音乐联动、全屏遮罩覆盖/键盘拦截需在 Windows 真机验收（CI 无 explorer shell/音频设备/QQ 音乐/桌面会话）；CI 验证接入闭环与不崩。
 
 ## License
 

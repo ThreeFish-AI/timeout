@@ -241,6 +241,37 @@ Phase 1（最小可运行 Windows 壳，无遮罩）已实现，验证策略为 
 >
 > **评估建议**：Phase 0–1 风险可控、可独立交付价值，建议先行以验证整体可行性；Phase 2（全屏遮罩）是「继续投入 vs 放弃 Windows」的真正决策点——其妥协（taskbar 偶现、SAS 逃生）是否可接受，决定了 Windows 版能否达到与 macOS 版同等的「软强制」体验。
 
+### 10.3 实现进展：Phase 2 已落地（2026-06）
+
+Phase 2（全屏强制遮罩，§5 核心难点）已实现，替换 Phase 1 的 `NoopOverlayController` 占位：
+
+- **[`windows/TimeoutEngine.Win32/NativeOverlay.cs`](../windows/TimeoutEngine.Win32/NativeOverlay.cs)（net8.0）**：`WH_KEYBOARD_LL`/`SetWindowPos`/`SetWindowLong`/`EnumDisplayMonitors` 的 P/Invoke + `KBDLLHOOKSTRUCT`/`RECT` 结构 + 常量（值锁单测，本地可验证）。
+- **[`windows/TimeoutShell/Overlay/`](../windows/TimeoutShell/Overlay/)（net8.0-windows 壳）**：`OverlayWindow.xaml(.cs)`（WPF 全屏 borderless + `OnSourceInitialized` 强制 `WS_EX_TOPMOST` 规避 ShowInTaskbar 坑 + 渐变/倒计时/确认双态 + Esc 双语义 Stopwatch）+ `OverlayViewModel`（INPC，镜像 Swift）+ `KeyboardLowLevelHook`（拦截 Alt+Tab/Win，放行 Esc/Ctrl+Alt+Del）。
+- **`FullscreenOverlayController`**：多屏（`EnumDisplayMonitors`，兜底虚拟屏）+ 屏幕热插拔（`DisplaySettingsChanged`）+ headless try/catch 降级记 `OVERLAY_*` 标记；`AppRoot` 桥接 `OnRequestEarlyExit` → `engine.RequestEarlyRestExit`（引擎内部 Dismiss，不自 Dismiss，对齐 macOS `confirmEarlyExit`）。
+
+> **妥协诚实披露（§5）**：taskbar 偶现（Windows 固有，`WS_EX_TOPMOST` 无 `CGShieldingWindowLevel` 等价物）；Ctrl+Alt+Del 逃生（SAS 内核层不可拦）；Ctrl+Esc 不专门拦（`LLKHF` 无 Ctrl 标志，无法与纯 Esc 区分，Esc 全放行交 WPF 双语义）；`WH_KEYBOARD_LL` 可能触发杀软误报（Phase 4 签名根治）。CI 能证「遮罩 Show 被调 + 不崩」（`OVERLAY_SHOW_(OK|FAIL)` 断言），**真实覆盖/拦截/Esc 双语义归真机验收**（§10.2 评估建议所述决策门）。
+
+### 10.4 实现进展：Phase 3 已落地（2026-06）
+
+Phase 3（日历门控，Microsoft Graph）已实现，替换 `EmptyCalendarProvider` 条件注入：
+
+- **[`windows/TimeoutEngine.Graph/`](../windows/TimeoutEngine.Graph/)（net8.0，零 NuGet）**：`GraphTimelineMapper`（纯解析：filter busy/tentative，排除 isAllDay，复用 `Engine.MergeBusyIntervals`）+ `TimelineCache`（限流 180s/60s + 线程安全）+ `GraphCalendarProvider`（`ICalendarProvider` 编排，mock `IGraphClient` 可测，fire-and-forget 刷新 + 失败降级）。
+- **[`windows/TimeoutShell/Adapters/MsalGraphClient.cs`](../windows/TimeoutShell/Adapters/MsalGraphClient.cs)（壳）**：MSAL 设备码 flow（`PublicClientApplication` + `AcquireTokenWithDeviceCode`，callback 仅打印 URL+code）+ HttpClient GET `/me/calendarView` + `Prefer: outlook.timezone="UTC"` 强制 UTC。
+- **配置**：`config.schema.json` + `DayPlanConfig.GraphClientId`（用户填 Azure 注册 id）；`AppRoot.BuildCalendarProvider` 条件注入——非空 → `GraphCalendarProvider(MsalGraphClient)`，空/失败 → `EmptyCalendarProvider`（headless 降级，`CALENDAR_DEGRADED` 标记）。Swift `Sources/` 零改动（Codable 忽略未知 key）。
+
+> **OAuth 红线与诚实披露**：client id 从配置读，首次设备码授权 100% 用户完成（CLAUDE.md 浏览器验证协议红线，Agent 绝不认证）；CI 无法验证真实 Graph（无账户），仅证解析层（fixture）+ 编排（mock）+ 条件注入降级。token 内存缓存（重启重新设备码，Phase 4 可持久化）；`EKEventStoreChanged` 推送无 Graph 等价，靠 180s 惰性刷新。真机验收：Azure 注册公共客户端应用（允许设备码）→ 填 client id → 设备码授权 `Calendars.Read` → busy/tentative 会议推迟休息。
+
+### 10.5 实现进展：Phase 4 已落地（2026-06）
+
+Phase 4（CI 多平台 Release）已实现，[`release.yml`](../.github/workflows/release.yml) 改造为 3-job matrix（§7）：
+
+- **macos job**（macos-14）：现有 ①-⑥ 链路**逐字保留**（版本校验/make app/条件 Developer ID 签名/公证/ditto 打包/验证），末尾改 `upload-artifact`(macos-zip) + version/notarized markers。
+- **windows job**（windows-latest，新增）：`setup-dotnet` + `dotnet publish --self-contained -p:Version` + `Compress-Archive` → win64.zip artifact。**无签名步骤**（用户决策）。
+- **release job**（ubuntu-latest，`needs [macos, windows]`）：download-artifact ×3（markers + 双 zip）+ flatten 子目录 + `softprops/action-gh-release` 一次挂双 asset + 双平台 body（macOS 公证/ad-hoc 动态告知 + Windows SmartScreen 无签名告知）。
+- **版本跨 job**：version marker 文件（macos 写 `version.txt`，release 读）；tag 权威源，macos ① 校验 tag==Info.plist，windows 从 tag 取，三者一致。
+
+> **Windows 无签名诚实披露**：未签名 `win64.zip` 触发 SmartScreen 警告（首次「更多信息→仍要运行」）+ 杀软可能误报（`WH_KEYBOARD_LL`/`SendInput`）。self-contained 含 .NET 运行时（~150MB，免用户装 .NET）。签名留后续单独 workflow（用户配 Azure Trusted Signing/证书）。**CI 无法本地验证**（CD，tag 触发），首个 tag（如 `v0.1.1`，先同步 `Info.plist`）回归验证 macOS 链路不破坏 + 双 asset 收敛。
+
 ## References
 
 <a id="ref1"></a>[1] Swift.org, "Swift on Windows — Official Toolchain," *Swift.org*, 2026. [Online]. Available: https://www.swift.org/install/windows

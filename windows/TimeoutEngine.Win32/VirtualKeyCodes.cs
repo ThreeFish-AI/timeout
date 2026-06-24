@@ -10,4 +10,9 @@ public static class VirtualKeyCodes
     public const ushort MediaStop = 0xB2;
     /// <summary>媒体播放/暂停 toggle（对齐 macOS NX_KEYTYPE_PLAY toggle 语义）。</summary>
     public const ushort MediaPlayPause = 0xB3;
+
+    /// <summary>左 Win 键（WH_KEYBOARD_LL soft-force 拦截用）。</summary>
+    public const ushort LWin = 0x5B;
+    /// <summary>右 Win 键（WH_KEYBOARD_LL soft-force 拦截用）。</summary>
+    public const ushort RWin = 0x5C;
 }

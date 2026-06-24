@@ -195,6 +195,10 @@ jobs:
           if (-not $log) { Write-Error "无 stdout 日志，进程可能启动即崩"; exit 1 }
           if ($log -notmatch "ASSEMBLY_OK") { Write-Error "未见 ASSEMBLY_OK 标记，装配阶段异常"; exit 1 }
           if ($log -notmatch "STARTUP_OK") { Write-Error "未见 STARTUP_OK 标记"; exit 1 }
+          # Phase 2：遮罩 Show 被调用（OK 或降级 FAIL 任一），证明 FullscreenOverlayController 接入闭环
+          if ($log -notmatch "OVERLAY_SHOW_(OK|FAIL)") { Write-Error "未见 OVERLAY_SHOW 标记，遮罩 Show 未触发（Phase 2）"; exit 1 }
+          # Phase 3：graphClientId 空（TIMEOUT_DEBUG）→ EmptyCalendarProvider 降级，证明条件注入走对路径
+          if ($log -notmatch "CALENDAR_DEGRADED") { Write-Error "未见 CALENDAR_DEGRADED 标记，日历条件注入未走降级（Phase 3）"; exit 1 }
           $err = Get-Content shell-err.log -Raw -ErrorAction SilentlyContinue
           if ($err -match "Unhandled|Exception:") { Write-Error "stderr 含未处理异常：$err"; exit 1 }
           Write-Host "headless 烟测通过：装配成功 + 无未处理异常"

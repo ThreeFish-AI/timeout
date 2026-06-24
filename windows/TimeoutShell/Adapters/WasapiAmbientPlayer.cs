@@ -21,10 +21,10 @@ public sealed class WasapiAmbientPlayer : IDisposable
         if (IsPlaying) return;
         try
         {
-            _source = new LoopSampleProvider(_samples);
-            var vol = new VolumeSampleProvider(_source) { Volume = Volume };
+            // 音量在 LoopSampleProvider 内联应用（避免 VolumeSampleProvider 命名空间依赖）。
+            _source = new LoopSampleProvider(_samples, Volume);
             _player = new WasapiOut();
-            _player.Init(vol.ToWaveProvider());
+            _player.Init(_source.ToWaveProvider());
             _player.Play();
             IsPlaying = true;
             Console.WriteLine("[Timeout][ambient] 粉噪音已启动");
@@ -49,16 +49,18 @@ public sealed class WasapiAmbientPlayer : IDisposable
 
     public void Dispose() => Stop();
 
-    /// <summary>循环读取预生成 buffer 的 ISampleProvider（IEEE float 单声道）。</summary>
+    /// <summary>循环读取预生成 buffer 的 ISampleProvider（IEEE float 单声道，内联音量）。</summary>
     internal sealed class LoopSampleProvider : ISampleProvider
     {
         private readonly float[] _data;
+        private readonly float _volume;
         private int _pos;
         public WaveFormat WaveFormat { get; }
 
-        public LoopSampleProvider(float[] data, int sampleRate = 44100)
+        public LoopSampleProvider(float[] data, float volume, int sampleRate = 44100)
         {
             _data = data;
+            _volume = volume;
             WaveFormat = WaveFormat.CreateIeeeFloatWaveFormat(sampleRate, 1);
         }
 
@@ -66,7 +68,7 @@ public sealed class WasapiAmbientPlayer : IDisposable
         {
             for (int i = 0; i < count; i++)
             {
-                buffer[offset + i] = _data[_pos];
+                buffer[offset + i] = _data[_pos] * _volume;
                 _pos = (_pos + 1) % _data.Length;
             }
             return count;

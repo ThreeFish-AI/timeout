@@ -12,8 +12,10 @@ public partial class App : Application
     protected override void OnStartup(StartupEventArgs e)
     {
         base.OnStartup(e);
-        // 中文日志以 UTF-8 输出，避免 Windows 控制台代码页致重定向文件乱码（CI 烟测断言依赖）。
-        Console.OutputEncoding = System.Text.Encoding.UTF8;
+        // 尝试 UTF-8 输出（有控制台时中文可读）；stdout 重定向到文件（CI）时 SetConsoleOutputCP
+        // 无控制台句柄会抛 IOException——忽略。CI 断言依赖 ASCII 标记（ASSEMBLY_OK/STARTUP_OK），
+        // 不依赖中文编码，故 UTF-8 失效不影响断言。
+        try { Console.OutputEncoding = System.Text.Encoding.UTF8; } catch (System.IO.IOException) { }
         bool headless = Environment.GetEnvironmentVariable("TIMEOUT_HEADLESS") == "1";
         string debug = Environment.GetEnvironmentVariable("TIMEOUT_DEBUG") ?? "0";
 

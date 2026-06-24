@@ -12,12 +12,14 @@ public partial class App : Application
     protected override void OnStartup(StartupEventArgs e)
     {
         base.OnStartup(e);
+        // 中文日志以 UTF-8 输出，避免 Windows 控制台代码页致重定向文件乱码（CI 烟测断言依赖）。
+        Console.OutputEncoding = System.Text.Encoding.UTF8;
         bool headless = Environment.GetEnvironmentVariable("TIMEOUT_HEADLESS") == "1";
         string debug = Environment.GetEnvironmentVariable("TIMEOUT_DEBUG") ?? "0";
 
         _root = new AppRoot(Dispatcher);
         _root.Start(headless);
-        Console.WriteLine($"[Timeout] 启动完成 (headless={headless}, debug={debug})");
+        Console.WriteLine($"[Timeout] STARTUP_OK 启动完成 (headless={headless}, debug={debug})");
 
         if (headless)
         {

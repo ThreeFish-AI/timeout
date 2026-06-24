@@ -59,7 +59,7 @@ public sealed class AppRoot : IDisposable
             _tray = new TrayController(_engine, () => Console.WriteLine("[Timeout][settings] (Phase 1 占位)"));
 
         _heartbeat.Start(1.0, () => _engine.Tick());
-        Console.WriteLine($"[Timeout][root] 装配完成 headless={headless} interval={_config.WorkIntervalSeconds}s rest={_config.RestDurationSeconds}s");
+        Console.WriteLine($"[Timeout][root] ASSEMBLY_OK 装配完成 headless={headless} interval={_config.WorkIntervalSeconds}s rest={_config.RestDurationSeconds}s");
     }
 
     /// <summary>TIMEOUT_DEBUG 极速配置：使 CI 烟测在 5s 内见证 working→resting→working 相位转移。</summary>

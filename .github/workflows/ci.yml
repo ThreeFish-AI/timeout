@@ -193,8 +193,8 @@ jobs:
           Write-Host "===== STDERR ====="; Get-Content shell-err.log -ErrorAction SilentlyContinue
           $log = Get-Content shell-out.log -Raw -ErrorAction SilentlyContinue
           if (-not $log) { Write-Error "无 stdout 日志，进程可能启动即崩"; exit 1 }
-          if ($log -notmatch "装配完成") { Write-Error "未见装配完成日志，装配阶段异常"; exit 1 }
-          if ($log -notmatch "启动完成") { Write-Error "未见启动完成日志"; exit 1 }
+          if ($log -notmatch "ASSEMBLY_OK") { Write-Error "未见 ASSEMBLY_OK 标记，装配阶段异常"; exit 1 }
+          if ($log -notmatch "STARTUP_OK") { Write-Error "未见 STARTUP_OK 标记"; exit 1 }
           $err = Get-Content shell-err.log -Raw -ErrorAction SilentlyContinue
           if ($err -match "Unhandled|Exception:") { Write-Error "stderr 含未处理异常：$err"; exit 1 }
           Write-Host "headless 烟测通过：装配成功 + 无未处理异常"

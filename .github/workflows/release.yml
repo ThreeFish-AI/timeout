@@ -37,7 +37,7 @@ jobs:
   # macOS · 现有链路 ①-⑥ 逐字保留（演进式签名），仅末尾改 upload-artifact + markers。
   macos:
     name: Build & package (macOS)
-    runs-on: macos-14
+    runs-on: macos-15   # macos-14 将于 2026-07-06 弃用（2026-11-02 下线）；macos-15 默认 Xcode 16.4/Swift 6.0.x，满足 README baseline 且消除 Swift warning。
     timeout-minutes: 45   # 公证高峰期预留（notarytool --wait 偶达 30+ min）
     steps:
       - name: Checkout
@@ -46,19 +46,12 @@ jobs:
       - name: Setup macOS + Swift (cached)
         uses: ./.github/actions/setup-macos-swift
 
-      # ① 版本一致性校验（Single Source of Truth）：tag 与 Info.plist 必须一致。
+      # ① 版本一致性校验（SSOT）：复用共享 action，macOS/Windows 双 job 同源强校验（堵原 Windows 不校验漏洞）。
       - name: Resolve version & verify tag↔Info.plist consistency
-        run: |
-          set -euo pipefail
-          PLIST_V=$(/usr/libexec/PlistBuddy -c "Print :CFBundleShortVersionString" Resources/Info.plist)
-          if [[ "${GITHUB_REF}" == refs/tags/v* ]]; then
-            TAG_V="${GITHUB_REF#refs/tags/v}"
-            if [ "${TAG_V}" != "${PLIST_V}" ]; then
-              echo "::error::版本不一致：git tag (${TAG_V}) ≠ Info.plist (${PLIST_V})。请先更新 Resources/Info.plist 的 CFBundleShortVersionString 再打 tag。"
-              exit 1
-            fi
-          fi
-          echo "RELEASE_VERSION=${PLIST_V}" >> "$GITHUB_ENV"
+        id: ver
+        uses: ./.github/actions/verify-version
+      - name: Export RELEASE_VERSION
+        run: echo "RELEASE_VERSION=${{ steps.ver.outputs.version }}" >> "$GITHUB_ENV"
 
       # ② 构建+装配（复用 make app 单一事实源；产物 ad-hoc 签名，结构可启动）。
       - name: Build & assemble GiveMeABreak.app
@@ -180,17 +173,13 @@ jobs:
         with:
           dotnet-version: '8.0.x'
 
-      # 版本：tag 触发从 tag 取（与 macos ① 校验过的 Info.plist 一致）；dispatch 无 tag 从 Info.plist grep。
-      - name: Resolve version
+      # 版本：复用共享 verify-version action，与 macos job 同源强校验（堵原 Windows 不校验漏洞）。
+      - name: Resolve version & verify consistency
+        id: ver
+        uses: ./.github/actions/verify-version
+      - name: Export RELEASE_VERSION
         shell: bash
-        run: |
-          set -euo pipefail
-          if [[ "${GITHUB_REF}" == refs/tags/v* ]]; then
-            echo "RELEASE_VERSION=${GITHUB_REF#refs/tags/v}" >> "$GITHUB_ENV"
-          else
-            PLIST_V=$(grep -A1 'CFBundleShortVersionString' Resources/Info.plist | grep '<string>' | sed 's/.*<string>\(.*\)<\/string>.*/\1/')
-            echo "RELEASE_VERSION=${PLIST_V}" >> "$GITHUB_ENV"
-          fi
+        run: echo "RELEASE_VERSION=${{ steps.ver.outputs.version }}" >> "$GITHUB_ENV"
 
       # publish self-contained（含 .NET 8 + WindowsDesktop runtime，免用户装 .NET；对齐 ci.yml 范式）。
       - name: Publish self-contained (win-x64)

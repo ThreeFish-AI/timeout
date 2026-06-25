@@ -77,3 +77,20 @@
 - **验证方法论（关键）**：普通窗口可见性验证用 `CGWindowListCopyWindowInfo` 查窗口服务器（确认创建 + 读 bounds 判离屏），再 `screencapture -l <kCGWindowNumber>` **截特定窗口**；全屏 `screencapture` 在多屏/虚拟显示环境会截错屏。与 issue #4（screencapture 无法捕获 CGShieldingWindowLevel）同理：窗口可见性勿依赖全屏截图。
 - **后续防范**：accessory/agent app 窗口定位勿依赖 `center()`（显式 screen 计算更可靠）；`NSHostingController` 窗口需特定初始尺寸时显式 `setContentSize`，勿依赖 SwiftUI `idealSize`。
 - **同类影响**：所有 `LSUIElement` 应用（菜单栏/agent）的窗口定位与可见性验证。
+
+## #8 release.yml 版本校验失败（tag ≠ Info.plist）+ 双 job 校验不对称 + macos-14 弃用
+
+- **表因**：tag `v0.0.1` 触发 release.yml，macOS job step ① 版本一致性校验 `tag(0.0.1) ≠ Info.plist(0.1.0)` → `::error::` + `exit 1`，Release 未产出。但 Windows job 不校验、仍产出 `version=0.0.1` 的半成品 artifact（tag 已消耗、无 Release、Windows 残留）。
+- **根因**：
+  - (a) 打 tag 时未同步 `Resources/Info.plist` 的 `CFBundleShortVersionString`，二者漂移。
+  - (b) **真正根因——双 job 版本解析不对称**：macOS job step ① 校验 `tag==Info.plist`，但 Windows job resolve version 在 tag 触发时**直接用 tag、不读 Info.plist、不校验**。校验逻辑分散在两 job 且行为不一：macOS 拦截时 Windows 仍静默产出错误版本号产物。即使本次 macOS 校验存在，也只挡了一半。
+  - (c) 次级噪声：README Swift baseline(6.0) ↔ macos-14 runner(Swift 5.x) ↔ Package.swift(5.10) 三者矛盾，每次 CI warning；且 `macos-14` 将于 2026-07-06 弃用（2026-11-02 下线）。
+- **处理方式**：
+  - 版本统一：`Info.plist` 保持 `0.1.0`（语义为"首个可用版本"，优于向 `0.0.1` 妥协的自我降级）；删除未产出 Release 的半成品 tag `v0.0.1`，重建为 `v0.1.0`。
+  - **治本——抽共享 composite action `.github/actions/verify-version`**（`grep`/`sed` 跨平台解析 plist，不依赖 Windows runner 缺失的 `PlistBuddy`），macOS/Windows 双 job 同源强校验、输出统一 `version`。原分散两 job 的版本逻辑收敛为一处（SSOT）。
+  - `macos-14` → `macos-15`（ci.yml×3 + release.yml×1）：默认 Xcode 16.4/Swift 6.0.x，消除 Swift warning + 预防弃用；`Package.swift` 保持 5.10 向下兼容，README 6.0 baseline 名正言顺。
+- **后续防范**：
+  - 版本号 SSOT 是 `Info.plist` 的 `CFBundleShortVersionString`；打 tag 前必须确认与之一致（现由 CI `verify-version` action 强校验落地）。
+  - **双平台/多 job 的同类校验逻辑必须收敛为共享 action，禁止各 job 内联复制**——否则行为漂移（本次 Windows 漏校验即此反模式）。
+  - macOS runner 选型须关注弃用时间线（参考 [actions/runner-images](https://github.com/actions/runner-images/issues/13518)），优先 `macos-15`+。
+- **同类影响**：所有 tag-driven 多平台 release workflow；所有"双 job 独立解析同一事实源"的反模式；GitHub Actions macOS runner 版本时效性。

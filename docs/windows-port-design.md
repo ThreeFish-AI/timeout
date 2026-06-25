@@ -265,12 +265,12 @@ Phase 3（日历门控，Microsoft Graph）已实现，替换 `EmptyCalendarProv
 
 Phase 4（CI 多平台 Release）已实现，[`release.yml`](../.github/workflows/release.yml) 改造为 3-job matrix（§7）：
 
-- **macos job**（macos-14）：现有 ①-⑥ 链路**逐字保留**（版本校验/make app/条件 Developer ID 签名/公证/ditto 打包/验证），末尾改 `upload-artifact`(macos-zip) + version/notarized markers。
+- **macos job**（macos-15）：现有 ①-⑥ 链路基本保留（① 版本校验改复用共享 `.github/actions/verify-version`，见下「版本跨 job」）（版本校验/make app/条件 Developer ID 签名/公证/ditto 打包/验证），末尾改 `upload-artifact`(macos-zip) + version/notarized markers。
 - **windows job**（windows-latest，新增）：`setup-dotnet` + `dotnet publish --self-contained -p:Version` + `Compress-Archive` → win64.zip artifact。**无签名步骤**（用户决策）。
 - **release job**（ubuntu-latest，`needs [macos, windows]`）：download-artifact ×3（markers + 双 zip）+ flatten 子目录 + `softprops/action-gh-release` 一次挂双 asset + 双平台 body（macOS 公证/ad-hoc 动态告知 + Windows SmartScreen 无签名告知）。
-- **版本跨 job**：version marker 文件（macos 写 `version.txt`，release 读）；tag 权威源，macos ① 校验 tag==Info.plist，windows 从 tag 取，三者一致。
+- **版本跨 job**：version marker 文件（macos 写 `version.txt`，release 读）；Info.plist 为 SSOT，macOS/Windows 双 job 共享 `.github/actions/verify-version` 校验 tag==Info.plist，不一致即 fail（堵原 windows 不校验漏洞）。
 
-> **Windows 无签名诚实披露**：未签名 `win64.zip` 触发 SmartScreen 警告（首次「更多信息→仍要运行」）+ 杀软可能误报（`WH_KEYBOARD_LL`/`SendInput`）。self-contained 含 .NET 运行时（~150MB，免用户装 .NET）。签名留后续单独 workflow（用户配 Azure Trusted Signing/证书）。**CI 无法本地验证**（CD，tag 触发），首个 tag（如 `v0.1.1`，先同步 `Info.plist`）回归验证 macOS 链路不破坏 + 双 asset 收敛。
+> **Windows 无签名诚实披露**：未签名 `win64.zip` 触发 SmartScreen 警告（首次「更多信息→仍要运行」）+ 杀软可能误报（`WH_KEYBOARD_LL`/`SendInput`）。self-contained 含 .NET 运行时（~150MB，免用户装 .NET）。签名留后续单独 workflow（用户配 Azure Trusted Signing/证书）。**CI 无法本地验证**（CD，tag 触发），首个 tag（如 `v0.1.0`，先同步 `Info.plist`）回归验证 macOS 链路不破坏 + 双 asset 收敛。
 
 ## References
 

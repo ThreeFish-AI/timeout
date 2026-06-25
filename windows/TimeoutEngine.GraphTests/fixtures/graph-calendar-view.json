@@ -1,0 +1,16 @@
+{
+  "$comment": "Graph /me/calendarView 响应样本（UTC）。覆盖 busy/tentative/free/oof/isAllDay/重叠/瞬时。镜像 macOS LiveCalendarProvider.refresh 的 filter/map/merge 期望。",
+  "events": [
+    { "subject": "会议A", "start": { "dateTime": "2026-06-24T09:00:00", "timeZone": "UTC" }, "end": { "dateTime": "2026-06-24T10:00:00", "timeZone": "UTC" }, "showAs": "busy" },
+    { "subject": "会议B与A重叠", "start": { "dateTime": "2026-06-24T09:30:00", "timeZone": "UTC" }, "end": { "dateTime": "2026-06-24T10:30:00", "timeZone": "UTC" }, "showAs": "busy" },
+    { "subject": "暂定会议C", "start": { "dateTime": "2026-06-24T11:00:00", "timeZone": "UTC" }, "end": { "dateTime": "2026-06-24T11:30:00", "timeZone": "UTC" }, "showAs": "tentative" },
+    { "subject": "空闲事件", "start": { "dateTime": "2026-06-24T12:00:00", "timeZone": "UTC" }, "end": { "dateTime": "2026-06-24T13:00:00", "timeZone": "UTC" }, "showAs": "free" },
+    { "subject": "不在办公室", "start": { "dateTime": "2026-06-24T14:00:00", "timeZone": "UTC" }, "end": { "dateTime": "2026-06-24T15:00:00", "timeZone": "UTC" }, "showAs": "oof" },
+    { "subject": "全天事件", "start": { "dateTime": "2026-06-24T00:00:00", "timeZone": "UTC" }, "end": { "dateTime": "2026-06-25T00:00:00", "timeZone": "UTC" }, "showAs": "busy", "isAllDay": true },
+    { "subject": "瞬时事件", "start": { "dateTime": "2026-06-24T16:00:00", "timeZone": "UTC" }, "end": { "dateTime": "2026-06-24T16:00:00", "timeZone": "UTC" }, "showAs": "busy" }
+  ],
+  "expectedBusyIntervals": [
+    { "start": "2026-06-24T09:00:00Z", "end": "2026-06-24T10:30:00Z" },
+    { "start": "2026-06-24T11:00:00Z", "end": "2026-06-24T11:30:00Z" }
+  ]
+}

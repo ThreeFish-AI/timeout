@@ -30,6 +30,7 @@
     "restDurationSeconds": { "type": "number", "default": 600, "minimum": 0, "description": "单次休息时长（秒），默认 10 分钟" },
     "afkThresholdSeconds": { "type": "number", "default": 180, "minimum": 0, "description": "系统空闲超过此值视为 AFK，暂停累加（秒），默认 180" },
     "ambientSoundEnabled": { "type": "boolean", "default": true, "description": "休息时播放内置粉噪音，默认开" },
-    "controlQQMusic": { "type": "boolean", "default": true, "description": "休息时联动 QQ 音乐媒体键，默认开" }
+    "controlQQMusic": { "type": "boolean", "default": true, "description": "休息时联动 QQ 音乐媒体键，默认开" },
+    "graphClientId": { "type": ["string", "null"], "default": null, "description": "Microsoft Graph 日历门控 Azure 应用 client id（用户在 Azure portal 注册公共客户端应用，允许设备码 flow）。空=禁用日历门控，降级为无会议（Phase 3）。" }
   }
 }

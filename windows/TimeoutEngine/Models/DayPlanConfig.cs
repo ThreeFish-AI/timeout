@@ -23,6 +23,9 @@ public sealed class DayPlanConfig : IEquatable<DayPlanConfig>
     /// <summary>休息时联动 QQ 音乐媒体键，默认开。</summary>
     public bool ControlQQMusic { get; set; }
 
+    /// <summary>Microsoft Graph 日历门控 client id（Phase 3）。空=禁用日历门控，降级为无会议。</summary>
+    public string? GraphClientId { get; set; }
+
     public DayPlanConfig() { }
 
     /// <summary>默认配置（单一事实源：默认值取自此处，容错解码时缺字段回退到此）。</summary>
@@ -56,6 +59,7 @@ public sealed class DayPlanConfig : IEquatable<DayPlanConfig>
             AfkThresholdSeconds = dto.AfkThresholdSeconds ?? d.AfkThresholdSeconds,
             AmbientSoundEnabled = dto.AmbientSoundEnabled ?? true,
             ControlQQMusic = dto.ControlQQMusic ?? true,
+            GraphClientId = dto.GraphClientId,
         };
     }
 
@@ -76,6 +80,7 @@ public sealed class DayPlanConfig : IEquatable<DayPlanConfig>
             || AfkThresholdSeconds != other.AfkThresholdSeconds
             || AmbientSoundEnabled != other.AmbientSoundEnabled
             || ControlQQMusic != other.ControlQQMusic
+            || GraphClientId != other.GraphClientId
             || WorkWindows.Count != other.WorkWindows.Count) return false;
         for (int i = 0; i < WorkWindows.Count; i++)
             if (!WorkWindows[i].Equals(other.WorkWindows[i])) return false;
@@ -93,6 +98,7 @@ public sealed class DayPlanConfig : IEquatable<DayPlanConfig>
         h.Add(AfkThresholdSeconds);
         h.Add(AmbientSoundEnabled);
         h.Add(ControlQQMusic);
+        h.Add(GraphClientId);
         foreach (var w in WorkWindows) h.Add(w);
         return h.ToHashCode();
     }
@@ -107,5 +113,6 @@ public sealed class DayPlanConfig : IEquatable<DayPlanConfig>
         public double? AfkThresholdSeconds { get; set; }
         public bool? AmbientSoundEnabled { get; set; }
         public bool? ControlQQMusic { get; set; }
+        public string? GraphClientId { get; set; }
     }
 }

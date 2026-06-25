@@ -1,9 +1,9 @@
-# Timeout — 发布 CD（持续交付）。
+# Timeout — 发布 CD（持续交付）· 多平台（macOS + Windows）。
 # 触发：git tag v*（版本即 tag，不可变锚点）+ workflow_dispatch（手动补刀 / prerelease）。
-# 演进式（Evolutionary Design）：默认走 ad-hoc 路径打通全链路；配置 ENABLE_DEVELOPER_ID_SIGNING
-#   Variable + 签名/公证 secrets 后，无需改 YAML 即自动升级到 Developer ID 签名 + Apple 公证。
-# 正交分解：签名 / 公证 / 打包 / 验证 / 发布 五阶段各自 if 条件门控，互不纠缠。
-# 单一事实源：环境准备委托 .github/actions/setup-macos-swift；装配复用 make app；版本源为 Info.plist。
+# 架构（docs/windows-port-design.md §7）：单 workflow + 3 job 规避多 workflow 同 tag 竞态——
+#   macos job（①-⑥ 现有链路逐字保留，演进式签名）+ windows job（dotnet publish self-contained，无签名）
+#   → release job（needs [macos, windows] 收敛）一次性 softprops/action-gh-release 挂双 asset。
+# macOS 演进式签名不变（ENABLE_DEVELOPER_ID_SIGNING + secrets）；Windows 暂不签名（SmartScreen 告知，签名留后续）。
 name: Release
 
 on:
@@ -23,7 +23,7 @@ on:
         default: false
         type: boolean
 
-# 创建 Release + 上传 asset 必需 contents:write；其余不声明即默认 none（最小权限）。
+# 创建 Release + 上传 asset 必需 contents:write；其余默认 none（最小权限）。
 permissions:
   contents: write
 
@@ -33,8 +33,10 @@ concurrency:
   cancel-in-progress: false
 
 jobs:
-  release:
-    name: Build, sign, notarize & release
+  # ────────────────────────────────────────────────────────────────────────
+  # macOS · 现有链路 ①-⑥ 逐字保留（演进式签名），仅末尾改 upload-artifact + markers。
+  macos:
+    name: Build & package (macOS)
     runs-on: macos-14
     timeout-minutes: 45   # 公证高峰期预留（notarytool --wait 偶达 30+ min）
     steps:
@@ -45,7 +47,6 @@ jobs:
         uses: ./.github/actions/setup-macos-swift
 
       # ① 版本一致性校验（Single Source of Truth）：tag 与 Info.plist 必须一致。
-      #    PlistBuddy 为 macOS 专有，故该校验在本 workflow（macos）而非 lint（ubuntu）。
       - name: Resolve version & verify tag↔Info.plist consistency
         run: |
           set -euo pipefail
@@ -60,13 +61,10 @@ jobs:
           echo "RELEASE_VERSION=${PLIST_V}" >> "$GITHUB_ENV"
 
       # ② 构建+装配（复用 make app 单一事实源；产物 ad-hoc 签名，结构可启动）。
-      #    图标 generate_icon.swift 依赖 NSImage 离屏渲染，macos runner 有 window server 可跑。
       - name: Build & assemble Timeout.app
         run: make app
 
       # ③a 检测签名/公证 secrets 是否存在。
-      #     GitHub Actions 限制：if: 表达式中不可用 secrets context（仅 env/github/inputs/vars/steps 等可用），
-      #     故先在 env 中读取 secrets，经 shell 检测非空后以 step output 暴露给后续条件（业界标准范式）。
       - name: Detect signing/notarization secrets
         id: signing
         env:
@@ -77,7 +75,6 @@ jobs:
           if [ -n "$APPLE_ID" ]; then echo "has_notarize=true" >> "$GITHUB_OUTPUT"; else echo "has_notarize=false" >> "$GITHUB_OUTPUT"; fi
 
       # ③ 条件 Developer ID 重签（演进升级；--force 覆盖 make app 的 ad-hoc 签名）。
-      #    开关：vars.ENABLE_DEVELOPER_ID_SIGNING 总开关 + 证书 secrets 已配置（has_cert）。
       - name: Import cert & re-sign with Developer ID
         if: ${{ vars.ENABLE_DEVELOPER_ID_SIGNING == 'true' && steps.signing.outputs.has_cert == 'true' }}
         env:
@@ -145,29 +142,130 @@ jobs:
           spctl -a -vvvv -t install Timeout.app
           xcrun stapler validate Timeout.app
 
-      # ⑦ Release：artifact + GitHub Release。
-      - name: Upload build artifact
+      # ⑦ 上传 artifact（Release 创建上移到 release 收敛 job）+ 版本/公证 markers（供 release job 跨 job 读取）。
+      - name: Write version & notarized markers
+        run: |
+          echo "${RELEASE_VERSION}" > version.txt
+          echo "${NOTARIZED:-false}" > notarized.txt
+
+      - name: Upload macOS zip artifact
         uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
         with:
-          name: Timeout-${{ env.RELEASE_VERSION }}-macos
+          name: macos-zip
           path: ${{ env.RELEASE_ZIP }}
           if-no-files-found: error
+
+      - name: Upload markers artifact
+        uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
+        with:
+          name: markers
+          path: |
+            version.txt
+            notarized.txt
+          if-no-files-found: error
+
+  # ────────────────────────────────────────────────────────────────────────
+  # Windows · dotnet publish self-contained（对齐 ci.yml dotnet-build-shell 范式）· 无签名。
+  windows:
+    name: Build & package (Windows)
+    runs-on: windows-latest
+    timeout-minutes: 25
+    steps:
+      - name: Checkout
+        uses: actions/checkout@9c091bb21b7c1c1d1991bb908d89e4e9dddfe3e0 # v7.0.0
+
+      - name: Setup .NET 8
+        # NOTE: 暂用 tag，待人工/Dependabot SHA-pin 对齐仓库其余 action 规范。
+        uses: actions/setup-dotnet@v4
+        with:
+          dotnet-version: '8.0.x'
+
+      # 版本：tag 触发从 tag 取（与 macos ① 校验过的 Info.plist 一致）；dispatch 无 tag 从 Info.plist grep。
+      - name: Resolve version
+        shell: bash
+        run: |
+          set -euo pipefail
+          if [[ "${GITHUB_REF}" == refs/tags/v* ]]; then
+            echo "RELEASE_VERSION=${GITHUB_REF#refs/tags/v}" >> "$GITHUB_ENV"
+          else
+            PLIST_V=$(grep -A1 'CFBundleShortVersionString' Resources/Info.plist | grep '<string>' | sed 's/.*<string>\(.*\)<\/string>.*/\1/')
+            echo "RELEASE_VERSION=${PLIST_V}" >> "$GITHUB_ENV"
+          fi
+
+      # publish self-contained（含 .NET 8 + WindowsDesktop runtime，免用户装 .NET；对齐 ci.yml 范式）。
+      - name: Publish self-contained (win-x64)
+        run: dotnet publish windows/TimeoutShell/TimeoutShell.csproj -c Release -r win-x64 --self-contained -p:Version=${{ env.RELEASE_VERSION }} -o ./publish --nologo
+
+      - name: Package win64 zip
+        shell: pwsh
+        run: Compress-Archive -Path ./publish/* -DestinationPath "Timeout-${{ env.RELEASE_VERSION }}-win64.zip" -Force
+
+      - name: Upload Windows zip artifact
+        uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
+        with:
+          name: windows-zip
+          path: Timeout-${{ env.RELEASE_VERSION }}-win64.zip
+          if-no-files-found: error
+
+  # ────────────────────────────────────────────────────────────────────────
+  # Release 收敛 · needs [macos, windows] → 一次性 softprops 挂双 asset（规避多 workflow 竞态）。
+  release:
+    name: Create GitHub Release (dual asset)
+    runs-on: ubuntu-latest
+    needs: [macos, windows]
+    timeout-minutes: 10
+    steps:
+      - name: Download markers
+        # NOTE: 暂用 tag，待 SHA-pin。
+        uses: actions/download-artifact@v4
+        with:
+          name: markers
+
+      - name: Download macOS zip
+        uses: actions/download-artifact@v4
+        with:
+          name: macos-zip
+
+      - name: Download Windows zip
+        uses: actions/download-artifact@v4
+        with:
+          name: windows-zip
+
+      - name: Resolve version & notarized state
+        run: |
+          set -euo pipefail
+          echo "RELEASE_VERSION=$(cat version.txt)" >> "$GITHUB_ENV"
+          echo "NOTARIZED=$(cat notarized.txt)" >> "$GITHUB_ENV"
+
+      # download-artifact v4 解压到 <name>/ 子目录，归拢到当前目录供 softprops files: 引用。
+      - name: Flatten asset layout & verify
+        run: |
+          set -euo pipefail
+          mv macos-zip/*.zip . 2>/dev/null || true
+          mv windows-zip/*.zip . 2>/dev/null || true
+          ls -la Timeout-*.zip
+          test -f "Timeout-${RELEASE_VERSION}-macos.zip"
+          test -f "Timeout-${RELEASE_VERSION}-win64.zip"
 
       - name: Create GitHub Release
         uses: softprops/action-gh-release@718ea10b132b3b2eba29c1007bb80653f286566b # v3.0.1
         with:
-          # 统一从版本号构造 tag（tag push 时与触发 tag 一致；dispatch 时基于 Info.plist 创建/更新）
           tag_name: v${{ env.RELEASE_VERSION }}
           name: Timeout ${{ env.RELEASE_VERSION }}
-          files: ${{ env.RELEASE_ZIP }}
+          files: |
+            Timeout-${{ env.RELEASE_VERSION }}-macos.zip
+            Timeout-${{ env.RELEASE_VERSION }}-win64.zip
           fail_on_unmatched_files: true
           prerelease: ${{ github.event.inputs.prerelease == 'true' }}
           body: |
             ## Timeout ${{ env.RELEASE_VERSION }}
 
-            **下载**：`Timeout-${{ env.RELEASE_VERSION }}-macos.zip`
-
-            ### 安装
-            解压后将 `Timeout.app` 拖入 `/Applications`；首次启动需在「系统设置 → 隐私与安全性」授权辅助功能与媒体控制权限。
+            ### macOS
+            下载 `Timeout-${{ env.RELEASE_VERSION }}-macos.zip`。解压后将 `Timeout.app` 拖入 `/Applications`；首次启动需在「系统设置 → 隐私与安全性」授权辅助功能与媒体控制权限。
 
             ${{ env.NOTARIZED == 'true' && '> ✅ 已通过 Apple 公证（Notarized）+ Developer ID 签名，Gatekeeper 可直接放行。' || '> ⚠️ 此版本为 ad-hoc 签名（未签名/未公证）。首次打开会被 Gatekeeper 拦截，请执行 `xattr -dr com.apple.quarantine /Applications/Timeout.app` 放行（macOS 15.1 Sequoia 起「右键→打开」已失效），仅供内测。' }}
+
+            ### Windows
+            下载 `Timeout-${{ env.RELEASE_VERSION }}-win64.zip`。解压后运行 `TimeoutShell.exe`。内置 .NET 8 运行时，**无需额外安装任何依赖**。
+
+            > ⚠️ **此 Windows 版本未签名**。首次运行会被 SmartScreen 拦截，请点击「更多信息 → 仍要运行」。`TimeoutShell.exe` 可能被杀软（Defender / 360 / 火绒）误报（`WH_KEYBOARD_LL` 键盘钩子 + `SendInput` 媒体键触发），需手动加入信任。代码签名将在后续版本提供。

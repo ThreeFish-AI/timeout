@@ -4,6 +4,7 @@ using TimeoutEngine.Win32;
 using TimeoutShell.Adapters;
 using TimeoutShell.Power;
 using TimeoutShell.Tray;
+using TimeoutEngine.Graph;
 
 namespace TimeoutShell;
 
@@ -14,8 +15,8 @@ public sealed class AppRoot : IDisposable
     private readonly ConfigStore _store;
     private DayPlanConfig _config;
     private readonly WindowsSystemState _systemState = new();
-    private readonly EmptyCalendarProvider _calendar = new();
-    private readonly NoopOverlayController _overlay = new();
+    private readonly ICalendarProvider _calendar;
+    private readonly FullscreenOverlayController _overlay;
     private readonly WasapiAmbientPlayer _ambient;
     private readonly MusicController _music;
     private readonly HeartbeatTimer _heartbeat;
@@ -30,10 +31,12 @@ public sealed class AppRoot : IDisposable
         _config = _store.LoadConfig();
         if (Environment.GetEnvironmentVariable("TIMEOUT_DEBUG") == "1") ApplyDebugConfig();
 
+        _calendar = BuildCalendarProvider(_config);
         _ambient = new WasapiAmbientPlayer(new PinkNoiseGenerator());
         _music = new MusicController(_ambient,
             new MediaKeySender(new PInvokeSendInputPort()),
             new QqMusicDetector(new ProcessNameProvider()));
+        _overlay = new FullscreenOverlayController(dispatcher);
         _heartbeat = new HeartbeatTimer(dispatcher);
     }
 
@@ -49,6 +52,7 @@ public sealed class AppRoot : IDisposable
             systemState: _systemState,
             config: _config,
             initialState: _store.LoadState());
+        _overlay.OnRequestEarlyExit = () => _engine.RequestEarlyRestExit();  // Esc 双击 → 引擎内部 Dismiss（不自 Dismiss）
         _engine.SetPersistHandler(s => _store.SaveState(s));
         _engine.FastForward();
 
@@ -77,11 +81,35 @@ public sealed class AppRoot : IDisposable
         Console.WriteLine("[Timeout][debug] TIMEOUT_DEBUG 极速配置（2s 工作 / 1s 休息）");
     }
 
+    /// <summary>按 graphClientId 条件注入日历门控；空/失败 → EmptyCalendarProvider 降级（headless 不崩）。</summary>
+    private ICalendarProvider BuildCalendarProvider(DayPlanConfig config)
+    {
+        var clientId = config.GraphClientId;
+        if (string.IsNullOrWhiteSpace(clientId))
+        {
+            Console.WriteLine("CALENDAR_DEGRADED graphClientId 为空，日历门控降级（无会议）");
+            return new EmptyCalendarProvider();
+        }
+        try
+        {
+            var client = new MsalGraphClient(clientId);
+            if (!client.IsConfigured) return new EmptyCalendarProvider();
+            Console.WriteLine($"[Timeout][calendar] Graph 日历门控已装配（client id 末 4 位：…{clientId[^4..]}）");
+            return new GraphCalendarProvider(client, new SystemClock());
+        }
+        catch (Exception ex)
+        {
+            Console.WriteLine($"CALENDAR_DEGRADED Graph 装配失败，降级：{ex.Message}");
+            return new EmptyCalendarProvider();
+        }
+    }
+
     public void Dispose()
     {
         _heartbeat.Stop();
         _power?.Dispose();
         _tray?.Dispose();
+        _overlay.Dispose();   // 卸键盘钩子 + 关遮罩窗
         _music.Dispose();
     }
 }

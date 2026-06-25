@@ -1,13 +1,13 @@
 using Microsoft.Win32;
 
-namespace TimeoutShell.Autostart;
+namespace GiveMeABreakShell.Autostart;
 
 // 开机自启 · HKCU\Software\Microsoft\Windows\CurrentVersion\Run（非提权）。
 // 对齐 macOS LoginService(SMAppService)。写 HKCU 无需管理员权限。
 public static class RegistryAutostart
 {
     private const string RunKey = @"Software\Microsoft\Windows\CurrentVersion\Run";
-    private const string ValueName = "Timeout";
+    private const string ValueName = "GiveMeABreak";
 
     public static bool IsEnabled()
     {

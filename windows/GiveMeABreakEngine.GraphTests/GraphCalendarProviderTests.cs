@@ -1,8 +1,8 @@
 using Xunit;
-using TimeoutEngine;
-using TimeoutEngine.Graph;
+using GiveMeABreakEngine;
+using GiveMeABreakEngine.Graph;
 
-namespace TimeoutEngine.GraphTests;
+namespace GiveMeABreakEngine.GraphTests;
 
 // MARK: - GraphCalendarProvider 编排（mock IGraphClient + 虚拟 IClock）
 // 对齐 macOS LiveCalendarProvider：CurrentTimeline 同步返回缓存 + 惰性刷新 fire-and-forget + 限流 + 失败降级。

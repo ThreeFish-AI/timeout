@@ -1,7 +1,7 @@
 using System.Runtime.InteropServices;
-using TimeoutEngine.Win32;
+using GiveMeABreakEngine.Win32;
 
-namespace TimeoutShell.Overlay;
+namespace GiveMeABreakShell.Overlay;
 
 // WH_KEYBOARD_LL 低级键盘钩子（soft-force）。镜像 docs/windows-port-design.md §5。
 // 拦截 Alt+Tab / Win(L/R)；放行 Esc（交 WPF 双语义）+ Ctrl+Alt+Del（SAS 不可拦，逃生口）。
@@ -27,7 +27,7 @@ public sealed class KeyboardLowLevelHook : IDisposable
         // hMod=nullptr + dwThreadId=0：全局低级钩子（当前进程，需消息泵——WPF Dispatcher 提供）。
         _hookHandle = NativeOverlayMethods.SetWindowsHookEx(WinHook.WhKeyboardLl, _proc, IntPtr.Zero, 0);
         if (!IsInstalled)
-            Console.WriteLine("[Timeout][hook] SetWindowsHookEx 失败（headless/无桌面会话？降级不拦）");
+            Console.WriteLine("[GiveMeABreak][hook] SetWindowsHookEx 失败（headless/无桌面会话？降级不拦）");
     }
 
     public void Uninstall()

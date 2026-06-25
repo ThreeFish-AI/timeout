@@ -1,21 +1,21 @@
-# Timeout Windows 移植技术方案
+# Give me a break Windows 移植技术方案
 
 > macOS 强制作息应用移植至 Windows 10/11 的工程设计与循证评估。本方案回答两个前置问题——「能否在编译 macOS 版的同时顺便产出 Windows 版」「若不能，最务实的路径是什么」，供维护者评估是否启动实现。
-> 关联：协作规约见 [AGENTS.md](../AGENTS.md)，应用主文档见 [README](../README.md)，macOS 原始设计见 [设计文档](./timeout-design.md)，发布链路见 [`.github/workflows/release.yml`](../.github/workflows/release.yml)。
+> 关联：协作规约见 [AGENTS.md](../AGENTS.md)，应用主文档见 [README](../README.md)，macOS 原始设计见 [设计文档](./give-me-a-break-design.md)，发布链路见 [`.github/workflows/release.yml`](../.github/workflows/release.yml)。
 
 ## 1. 背景与核心结论
 
-Timeout 当前为纯 Swift（SPM，macOS 14+）实现，采用三目标正交分解（见 [设计文档 §架构](./timeout-design.md#2-调度引擎)）：
+Give me a break 当前为纯 Swift（SPM，macOS 14+）实现，采用三目标正交分解（见 [设计文档 §架构](./give-me-a-break-design.md#2-调度引擎)）：
 
-- **`TimeoutEngine`**：纯 Foundation（FSM + `evaluate` 纯函数 + JSON 持久化），零平台依赖；
-- **`TimeoutIntegrations`**：深度 macOS 集成（AppKit / CGEvent / EventKit / AVAudioEngine / ServiceManagement）；
-- **`Timeout`**：`@main` 壳。
+- **`GiveMeABreakEngine`**：纯 Foundation（FSM + `evaluate` 纯函数 + JSON 持久化），零平台依赖；
+- **`GiveMeABreakIntegrations`**：深度 macOS 集成（AppKit / CGEvent / EventKit / AVAudioEngine / ServiceManagement）；
+- **`GiveMeABreak`**：`@main` 壳。
 
 维护者希望：在 GitHub Release 页同时提供 macOS 与 Windows 两套安装包，让不同 OS 用户自行选择。本方案的循证结论如下：
 
-> **结论 1（Q2 可行性）**：**无法「顺便」编译 Windows 版**。Swift 语言本身可在 Windows 上官方编译<sup>[[1]](#ref1)</sup>，但 `TimeoutIntegrations` 依赖的 AppKit / CoreGraphics / EventKit / AVFoundation 等 Apple 专有框架在 Windows 上**物理不存在**（逐项已验证），`import AppKit` 在 Windows 工具链直接编译失败。
+> **结论 1（Q2 可行性）**：**无法「顺便」编译 Windows 版**。Swift 语言本身可在 Windows 上官方编译<sup>[[1]](#ref1)</sup>，但 `GiveMeABreakIntegrations` 依赖的 AppKit / CoreGraphics / EventKit / AVFoundation 等 Apple 专有框架在 Windows 上**物理不存在**（逐项已验证），`import AppKit` 在 Windows 工具链直接编译失败。
 >
-> **结论 2（Q2 务实路径）**：唯一可行的跨平台资产是纯 Foundation 的 `TimeoutEngine`。完整 Windows 桌面应用须**重写（非移植）整个集成层**，推荐 **C#/.NET 8 WPF 原生重写 + 共享纯逻辑核心**，工作量集中在一个核心难点——全屏强制遮罩。
+> **结论 2（Q2 务实路径）**：唯一可行的跨平台资产是纯 Foundation 的 `GiveMeABreakEngine`。完整 Windows 桌面应用须**重写（非移植）整个集成层**，推荐 **C#/.NET 8 WPF 原生重写 + 共享纯逻辑核心**，工作量集中在一个核心难点——全屏强制遮罩。
 >
 > **结论 3（Q1 macOS 发布）**：与 Windows 移植解耦。macOS 发布链路已就绪（`release.yml`，打 tag 即发布），详见 [README §构建与运行](../README.md#构建与运行)与本仓库 commit `fix(release)` 的 `--timestamp` 修复。
 
@@ -37,10 +37,10 @@ Timeout 当前为纯 Swift（SPM，macOS 14+）实现，采用三目标正交分
 
 ### 2.2 本项目的绑定盘点（硬数据）
 
-经全量代码勘察（`Sources/TimeoutIntegrations/` 13 文件 + `Sources/Timeout/` + `scripts/generate_icon.swift`）：
+经全量代码勘察（`Sources/GiveMeABreakIntegrations/` 13 文件 + `Sources/GiveMeABreak/` + `scripts/generate_icon.swift`）：
 
-- **`TimeoutEngine`（5 文件）**：100% 纯 Foundation，**可直接在 Windows 编译**，是唯一跨平台资产；
-- **`TimeoutIntegrations`（13 文件）**：**12 个（≈92%，约 960 行）macOS 专有**，仅 `Heartbeat.swift`（36 行，`DispatchSourceTimer`）可跨平台；
+- **`GiveMeABreakEngine`（5 文件）**：100% 纯 Foundation，**可直接在 Windows 编译**，是唯一跨平台资产；
+- **`GiveMeABreakIntegrations`（13 文件）**：**12 个（≈92%，约 960 行）macOS 专有**，仅 `Heartbeat.swift`（36 行，`DispatchSourceTimer`）可跨平台；
 - 绑定框架分布：AppKit（8 文件）、CoreGraphics/CGEvent（4 文件）、EventKit（1）、AVFoundation（1）、ServiceManagement（1）、ApplicationServices（1）。
 
 > 「顺便编译」在工程上不可能：这不是「配置一下」的问题，而是**框架在目标 OS 上物理不存在**，重写是唯一路径。
@@ -49,13 +49,13 @@ Timeout 当前为纯 Swift（SPM，macOS 14+）实现，采用三目标正交分
 
 ### 3.1 为何不复用 Swift 核心（FFI）
 
-`TimeoutEngine` 可经 Windows 版 `swift build` 编译为 DLL，再由 C# 经 P/Invoke 调用。但**不推荐**：
+`GiveMeABreakEngine` 可经 Windows 版 `swift build` 编译为 DLL，再由 C# 经 P/Invoke 调用。但**不推荐**：
 
 - Swift↔CLR 边界工具链（如 SwiftToCLR）仅实验性 PoC， ABI 不稳定；
-- `TimeoutEngine` 仅数百行纯逻辑，**C# 等价重写的成本 < 长期维护 FFI 边界**；
+- `GiveMeABreakEngine` 仅数百行纯逻辑，**C# 等价重写的成本 < 长期维护 FFI 边界**；
 - 两端各自原生（Swift / C#）更易测试、调试、演进。
 
-故采用 **C# 端重写 `TimeoutEngine`**，通过**共享黄金测试用例**保证两端 FSM 行为一致。
+故采用 **C# 端重写 `GiveMeABreakEngine`**，通过**共享黄金测试用例**保证两端 FSM 行为一致。
 
 ### 3.2 架构总览
 
@@ -66,11 +66,11 @@ flowchart TB
         FIX["shared/test-fixtures/*.json<br/>黄金测试用例（FSM 转移）"]
     end
     subgraph Mac["macOS 原生（现有 Swift，零改动）"]
-        EM["TimeoutEngine<br/>纯 Foundation FSM"]
-        IM["TimeoutIntegrations<br/>AppKit / CGEvent / EventKit / AVFoundation"]
+        EM["GiveMeABreakEngine<br/>纯 Foundation FSM"]
+        IM["GiveMeABreakIntegrations<br/>AppKit / CGEvent / EventKit / AVFoundation"]
     end
     subgraph Win["Windows 原生（新增 C#/.NET 8 WPF）"]
-        EW["TimeoutEngine.cs<br/>C# 重写 FSM"]
+        EW["GiveMeABreakEngine.cs<br/>C# 重写 FSM"]
         IW["Integrations<br/>WPF + Win32 P/Invoke + NAudio"]
     end
     SCHEMA --> EM & EW
@@ -90,9 +90,9 @@ flowchart TB
 ```
 ├── Sources/                # 现有 Swift（macOS，零改动）
 ├── windows/                # 新增 C#/.NET 8 WPF 工程
-│   ├── TimeoutEngine/      # C# 重写 FSM（对齐 evaluate 谓词优先级）
-│   ├── TimeoutIntegrations/# Win32 P/Invoke + WPF 集成
-│   └── Timeout/            # WPF 入口 + NotifyIcon
+│   ├── GiveMeABreakEngine/      # C# 重写 FSM（对齐 evaluate 谓词优先级）
+│   ├── GiveMeABreakIntegrations/# Win32 P/Invoke + WPF 集成
+│   └── GiveMeABreak/            # WPF 入口 + NotifyIcon
 ├── shared/                 # 跨平台单一事实源
 │   ├── config.schema.json  # 配置 schema（Swift Codable / C# System.Text.Json 双向兼容）
 │   └── test-fixtures/      # 黄金测试 JSON（两端共用）
@@ -153,8 +153,8 @@ flowchart TD
 
 两端必须保证 FSM 行为不漂移，采用**双单一事实源**：
 
-- **配置 Schema**：`shared/config.schema.json` 为权威定义；Swift 端 `Codable`、C# 端 `System.Text.Json` 双向兼容（含 `schemaVersion` 迁移，对齐 macOS 现有 [配置迁移](./timeout-design.md#4-数据模型)）。
-- **黄金测试用例**：`shared/test-fixtures/*.json` 封装 FSM 输入快照与期望态（含 [设计文档 §2.4](./timeout-design.md#24-工作示例验证30--30-会议--60-工作--10-休息) 的 30+30→60→10 工作示例、会议打断 abort-and-reset、AFK 冻结、睡眠不回灌等）。两端引擎共用同一份 fixture，**任一端失败即阻断 CI**，从机制上消除行为漂移。
+- **配置 Schema**：`shared/config.schema.json` 为权威定义；Swift 端 `Codable`、C# 端 `System.Text.Json` 双向兼容（含 `schemaVersion` 迁移，对齐 macOS 现有 [配置迁移](./give-me-a-break-design.md#4-数据模型)）。
+- **黄金测试用例**：`shared/test-fixtures/*.json` 封装 FSM 输入快照与期望态（含 [设计文档 §2.4](./give-me-a-break-design.md#24-工作示例验证30--30-会议--60-工作--10-休息) 的 30+30→60→10 工作示例、会议打断 abort-and-reset、AFK 冻结、睡眠不回灌等）。两端引擎共用同一份 fixture，**任一端失败即阻断 CI**，从机制上消除行为漂移。
 
 ## 7. CI 与多平台 Release
 
@@ -169,7 +169,7 @@ flowchart LR
     end
     M --> R["release job · 收敛"]
     W --> R
-    R --> Rel["GitHub Release<br/>Timeout-ver-macos.zip<br/>Timeout-ver-win64.zip"]
+    R --> Rel["GitHub Release<br/>give-me-a-break-ver-macos.zip<br/>give-me-a-break-ver-win64.zip"]
     classDef trigger fill:#5a4a2d,color:#fff,stroke:#c9b27f
     classDef job fill:#1f3a5a,color:#fff,stroke:#7fa8c9
     classDef release fill:#2d5a3a,color:#fff,stroke:#7fc98a
@@ -181,9 +181,9 @@ flowchart LR
 **关键点**：
 
 - **矩阵构建**：`os: [macos-14, windows-latest]` 并行；下游 `release` job `needs: [macos, windows]` 收敛后**一次性** `softprops/action-gh-release` 挂载全部 asset。
-- **asset 命名**：`Timeout-<ver>-macos.zip` / `Timeout-<ver>-win64.zip`（macOS 端命名已在本仓库 `fix(release)` commit 规范化预留）。
+- **asset 命名**：`give-me-a-break-<ver>-macos.zip` / `give-me-a-break-<ver>-win64.zip`（macOS 端命名已在本仓库 `fix(release)` commit 规范化预留）。
 - **环境差异**：macOS 复用现有 `setup-macos-swift` + `make app`；Windows 用 `setup-dotnet` + `dotnet publish -c Release -r win-x64 --self-contained`。
-- **`TimeoutEngine` 跨平台冒烟（零成本技术储备）**：可额外加 `windows-latest` job 跑 `setup-swift` + `swift test`，验证纯 Foundation 核心在 Windows 编译通过——不依赖任何 Windows UI 实现。
+- **`GiveMeABreakEngine` 跨平台冒烟（零成本技术储备）**：可额外加 `windows-latest` job 跑 `setup-swift` + `swift test`，验证纯 Foundation 核心在 Windows 编译通过——不依赖任何 Windows UI 实现。
 
 ## 8. 代码签名与分发
 
@@ -209,7 +209,7 @@ flowchart LR
 
 | 阶段 | 内容 | 产出 | 决策门 |
 |---|---|---|---|
-| **Phase 0** | C# 重写 `TimeoutEngine` + `shared/` 黄金测试，交叉验证 FSM 一致 | 纯核心两端行为对齐 | ✅ 可独立验证，风险最低，**建议作为启动首步** |
+| **Phase 0** | C# 重写 `GiveMeABreakEngine` + `shared/` 黄金测试，交叉验证 FSM 一致 | 纯核心两端行为对齐 | ✅ 可独立验证，风险最低，**建议作为启动首步** |
 | **Phase 1** | NAudio 粉噪音 + `SendInput` 媒体键 + `NotifyIcon` 托盘 | 最小可运行 Windows 壳（无遮罩） | 验证 WPF + Win32 P/Invoke 可行性 |
 | **Phase 2** | 全屏遮罩 + `WH_KEYBOARD_LL`（§5 核心难点） | 强制休息在 Windows 可用 | 攻坚 taskbar/SAS 妥协，**最大不确定性所在** |
 | **Phase 3** | 日历门控（Graph API + Google Calendar API） | 会议推迟休息对齐 | 两套 OAuth，工作量中等 |
@@ -219,9 +219,9 @@ flowchart LR
 
 Phase 0 已实现并通过双端验证，作为 Windows 移植的首块基石：
 
-- **[`windows/TimeoutEngine/`](../windows/TimeoutEngine/)**（.NET 8 类库）：C# 1:1 重写纯核心 8 文件（`Models/` + `Engine.cs` + `LiveTimeoutEngine.cs` + `ConfigStore.cs` + `Protocols.cs` + `_JsonConverters.cs`），镜像 `Sources/TimeoutEngine/` 的 FSM 语义，零第三方依赖；
+- **[`windows/GiveMeABreakEngine/`](../windows/GiveMeABreakEngine/)**（.NET 8 类库）：C# 1:1 重写纯核心 8 文件（`Models/` + `Engine.cs` + `LiveGiveMeABreakEngine.cs` + `ConfigStore.cs` + `Protocols.cs` + `_JsonConverters.cs`），镜像 `Sources/GiveMeABreakEngine/` 的 FSM 语义，零第三方依赖；
 - **[`shared/`](../shared/)**（跨平台单一事实源）：[`config.schema.json`](../shared/config.schema.json) + [`test-fixtures/`](../shared/test-fixtures/) 四份黄金 fixture（evaluate/advance/side-effects/merge-busy），统一用 Unix epoch 整数秒编码，规避两端时间格式差异；
-- **[`windows/TimeoutEngine.CSharpTests/`](../windows/TimeoutEngine.CSharpTests/)**（xUnit）：A 层 fixture 驱动 + B 层镜像，**25 测试全绿**（60ms），覆盖 P1-P5 谓词优先级、advance 限幅、休息生命周期四分支、会议 abort-and-reset、forcedRest Bug2 回归、ConfigStore schema 迁移；Swift 端回归 **34 全绿**，确认 `Sources/` 零改动无回归；
+- **[`windows/GiveMeABreakEngine.CSharpTests/`](../windows/GiveMeABreakEngine.CSharpTests/)**（xUnit）：A 层 fixture 驱动 + B 层镜像，**25 测试全绿**（60ms），覆盖 P1-P5 谓词优先级、advance 限幅、休息生命周期四分支、会议 abort-and-reset、forcedRest Bug2 回归、ConfigStore schema 迁移；Swift 端回归 **34 全绿**，确认 `Sources/` 零改动无回归；
 - **[`.github/workflows/ci.yml`](../.github/workflows/ci.yml)**：新增 `dotnet-test`（阻断型）+ `swift-core-smoke`（探针、`continue-on-error` 非阻断）两个 windows-latest job。
 
 > **黄金测试策略（务实混合，非全 JSON 化）**：纯函数走 JSON fixture（机器保证 FSM 决策不漂移，任一端失败即阻断 CI）；多 tick 时序场景走镜像测试（以 Swift 用例名为锚点人工对照，`Simulator`/`Mock` 辅助类忠实重写）。Swift `Sources/` **永不改动**——C# 是平行重写。
@@ -230,10 +230,10 @@ Phase 0 已实现并通过双端验证，作为 Windows 移植的首块基石：
 
 Phase 1（最小可运行 Windows 壳，无遮罩）已实现，验证策略为 **纯 CI（windows-latest）**——开发机 macOS 无法本地运行 Windows-only 代码。核心设计是**分层把不可本地验证的代码压到最小**：
 
-- **[`windows/TimeoutEngine.Win32/`](../windows/TimeoutEngine.Win32/)（net8.0）**：`[DllImport]` 声明（`GetLastInputInfo`/`GetTickCount64`/`SendInput`，元数据 net8.0 可编译）+ [`PinkNoiseGenerator`](../windows/TimeoutEngine.Win32/PinkNoiseGenerator.cs)（Paul Kellet 逐字移植 `AmbientSoundPlayer`）+ mockable 集成逻辑（`MediaKeySender`/`Win32IdleProbe`/`QqMusicDetector`，抽 `ISendInputPort`/`IProcessNameProvider` 隔离 native 调用）；
-- **[`windows/TimeoutEngine.Win32Tests/`](../windows/TimeoutEngine.Win32Tests/)（net8.0 xUnit，12 测试 macOS 本地全绿）**：粉噪音保真（Goertzel 单频功率/RMS/淡入/循环无点击）+ 空闲 49.7 天 64 位回绕 + 媒体键 down+up 序列；
-- **[`windows/TimeoutShell/`](../windows/TimeoutShell/)（net8.0-windows WPF 壳，CI-only）**：6 个 interface 的 Phase 1 实现（`NoopOverlayController` 占位 / `WasapiAmbientPlayer`(NAudio) / `MusicController`(粉噪音+QQ音乐媒体键) / `WindowsSystemState` / `EmptyCalendarProvider` / `HeartbeatTimer`）+ [`TrayController`](../windows/TimeoutShell/Tray/TrayController.cs)(H.NotifyIcon) + [`PowerEventBridge`](../windows/TimeoutShell/Power/PowerEventBridge.cs) + [`RegistryAutostart`](../windows/TimeoutShell/Autostart/RegistryAutostart.cs)；
-- **[`.github/workflows/ci.yml`](../.github/workflows/ci.yml)** 三层验证：**L1** 双平台 `dotnet-test`(windows) + `dotnet-test-mac`(macos-14) 跑 net8.0 测试（37 测试，证明真跨平台）；**L2** `dotnet-build-shell` 编译+publish WPF 壳；**L3** `dotnet-smoke-shell` headless 烟测（`TIMEOUT_HEADLESS` 跳过托盘/WASAPI，`TIMEOUT_DEBUG` 极速配置触发相位转移）。
+- **[`windows/GiveMeABreakEngine.Win32/`](../windows/GiveMeABreakEngine.Win32/)（net8.0）**：`[DllImport]` 声明（`GetLastInputInfo`/`GetTickCount64`/`SendInput`，元数据 net8.0 可编译）+ [`PinkNoiseGenerator`](../windows/GiveMeABreakEngine.Win32/PinkNoiseGenerator.cs)（Paul Kellet 逐字移植 `AmbientSoundPlayer`）+ mockable 集成逻辑（`MediaKeySender`/`Win32IdleProbe`/`QqMusicDetector`，抽 `ISendInputPort`/`IProcessNameProvider` 隔离 native 调用）；
+- **[`windows/GiveMeABreakEngine.Win32Tests/`](../windows/GiveMeABreakEngine.Win32Tests/)（net8.0 xUnit，12 测试 macOS 本地全绿）**：粉噪音保真（Goertzel 单频功率/RMS/淡入/循环无点击）+ 空闲 49.7 天 64 位回绕 + 媒体键 down+up 序列；
+- **[`windows/GiveMeABreakShell/`](../windows/GiveMeABreakShell/)（net8.0-windows WPF 壳，CI-only）**：6 个 interface 的 Phase 1 实现（`NoopOverlayController` 占位 / `WasapiAmbientPlayer`(NAudio) / `MusicController`(粉噪音+QQ音乐媒体键) / `WindowsSystemState` / `EmptyCalendarProvider` / `HeartbeatTimer`）+ [`TrayController`](../windows/GiveMeABreakShell/Tray/TrayController.cs)(H.NotifyIcon) + [`PowerEventBridge`](../windows/GiveMeABreakShell/Power/PowerEventBridge.cs) + [`RegistryAutostart`](../windows/GiveMeABreakShell/Autostart/RegistryAutostart.cs)；
+- **[`.github/workflows/ci.yml`](../.github/workflows/ci.yml)** 三层验证：**L1** 双平台 `dotnet-test`(windows) + `dotnet-test-mac`(macos-14) 跑 net8.0 测试（37 测试，证明真跨平台）；**L2** `dotnet-build-shell` 编译+publish WPF 壳；**L3** `dotnet-smoke-shell` headless 烟测（`GIVEMEABREAK_HEADLESS` 跳过托盘/WASAPI，`GIVEMEABREAK_DEBUG` 极速配置触发相位转移）。
 
 > **诚实披露（CI 能证 / 不能证）**：L1-L3 能证「壳启动不崩 + 引擎装配闭环 + 配置落盘 %APPDATA% + P/Invoke 声明 JIT 执行无 EntryPointNotFound」。**不能证**：托盘图标可见（CI 无 explorer shell）、WASAPI 出声（无设备）、媒体键触发 QQ 音乐（无 QQ 音乐/Now Playing）、全屏遮罩（Phase 2）——这些归用户 Windows 真机验收。QQ 音乐候选进程名（`QQMusic`/`QQMusicTray`）需用户实测校准。
 >
@@ -245,8 +245,8 @@ Phase 1（最小可运行 Windows 壳，无遮罩）已实现，验证策略为 
 
 Phase 2（全屏强制遮罩，§5 核心难点）已实现，替换 Phase 1 的 `NoopOverlayController` 占位：
 
-- **[`windows/TimeoutEngine.Win32/NativeOverlay.cs`](../windows/TimeoutEngine.Win32/NativeOverlay.cs)（net8.0）**：`WH_KEYBOARD_LL`/`SetWindowPos`/`SetWindowLong`/`EnumDisplayMonitors` 的 P/Invoke + `KBDLLHOOKSTRUCT`/`RECT` 结构 + 常量（值锁单测，本地可验证）。
-- **[`windows/TimeoutShell/Overlay/`](../windows/TimeoutShell/Overlay/)（net8.0-windows 壳）**：`OverlayWindow.xaml(.cs)`（WPF 全屏 borderless + `OnSourceInitialized` 强制 `WS_EX_TOPMOST` 规避 ShowInTaskbar 坑 + 渐变/倒计时/确认双态 + Esc 双语义 Stopwatch）+ `OverlayViewModel`（INPC，镜像 Swift）+ `KeyboardLowLevelHook`（拦截 Alt+Tab/Win，放行 Esc/Ctrl+Alt+Del）。
+- **[`windows/GiveMeABreakEngine.Win32/NativeOverlay.cs`](../windows/GiveMeABreakEngine.Win32/NativeOverlay.cs)（net8.0）**：`WH_KEYBOARD_LL`/`SetWindowPos`/`SetWindowLong`/`EnumDisplayMonitors` 的 P/Invoke + `KBDLLHOOKSTRUCT`/`RECT` 结构 + 常量（值锁单测，本地可验证）。
+- **[`windows/GiveMeABreakShell/Overlay/`](../windows/GiveMeABreakShell/Overlay/)（net8.0-windows 壳）**：`OverlayWindow.xaml(.cs)`（WPF 全屏 borderless + `OnSourceInitialized` 强制 `WS_EX_TOPMOST` 规避 ShowInTaskbar 坑 + 渐变/倒计时/确认双态 + Esc 双语义 Stopwatch）+ `OverlayViewModel`（INPC，镜像 Swift）+ `KeyboardLowLevelHook`（拦截 Alt+Tab/Win，放行 Esc/Ctrl+Alt+Del）。
 - **`FullscreenOverlayController`**：多屏（`EnumDisplayMonitors`，兜底虚拟屏）+ 屏幕热插拔（`DisplaySettingsChanged`）+ headless try/catch 降级记 `OVERLAY_*` 标记；`AppRoot` 桥接 `OnRequestEarlyExit` → `engine.RequestEarlyRestExit`（引擎内部 Dismiss，不自 Dismiss，对齐 macOS `confirmEarlyExit`）。
 
 > **妥协诚实披露（§5）**：taskbar 偶现（Windows 固有，`WS_EX_TOPMOST` 无 `CGShieldingWindowLevel` 等价物）；Ctrl+Alt+Del 逃生（SAS 内核层不可拦）；Ctrl+Esc 不专门拦（`LLKHF` 无 Ctrl 标志，无法与纯 Esc 区分，Esc 全放行交 WPF 双语义）；`WH_KEYBOARD_LL` 可能触发杀软误报（Phase 4 签名根治）。CI 能证「遮罩 Show 被调 + 不崩」（`OVERLAY_SHOW_(OK|FAIL)` 断言），**真实覆盖/拦截/Esc 双语义归真机验收**（§10.2 评估建议所述决策门）。
@@ -255,8 +255,8 @@ Phase 2（全屏强制遮罩，§5 核心难点）已实现，替换 Phase 1 的
 
 Phase 3（日历门控，Microsoft Graph）已实现，替换 `EmptyCalendarProvider` 条件注入：
 
-- **[`windows/TimeoutEngine.Graph/`](../windows/TimeoutEngine.Graph/)（net8.0，零 NuGet）**：`GraphTimelineMapper`（纯解析：filter busy/tentative，排除 isAllDay，复用 `Engine.MergeBusyIntervals`）+ `TimelineCache`（限流 180s/60s + 线程安全）+ `GraphCalendarProvider`（`ICalendarProvider` 编排，mock `IGraphClient` 可测，fire-and-forget 刷新 + 失败降级）。
-- **[`windows/TimeoutShell/Adapters/MsalGraphClient.cs`](../windows/TimeoutShell/Adapters/MsalGraphClient.cs)（壳）**：MSAL 设备码 flow（`PublicClientApplication` + `AcquireTokenWithDeviceCode`，callback 仅打印 URL+code）+ HttpClient GET `/me/calendarView` + `Prefer: outlook.timezone="UTC"` 强制 UTC。
+- **[`windows/GiveMeABreakEngine.Graph/`](../windows/GiveMeABreakEngine.Graph/)（net8.0，零 NuGet）**：`GraphTimelineMapper`（纯解析：filter busy/tentative，排除 isAllDay，复用 `Engine.MergeBusyIntervals`）+ `TimelineCache`（限流 180s/60s + 线程安全）+ `GraphCalendarProvider`（`ICalendarProvider` 编排，mock `IGraphClient` 可测，fire-and-forget 刷新 + 失败降级）。
+- **[`windows/GiveMeABreakShell/Adapters/MsalGraphClient.cs`](../windows/GiveMeABreakShell/Adapters/MsalGraphClient.cs)（壳）**：MSAL 设备码 flow（`PublicClientApplication` + `AcquireTokenWithDeviceCode`，callback 仅打印 URL+code）+ HttpClient GET `/me/calendarView` + `Prefer: outlook.timezone="UTC"` 强制 UTC。
 - **配置**：`config.schema.json` + `DayPlanConfig.GraphClientId`（用户填 Azure 注册 id）；`AppRoot.BuildCalendarProvider` 条件注入——非空 → `GraphCalendarProvider(MsalGraphClient)`，空/失败 → `EmptyCalendarProvider`（headless 降级，`CALENDAR_DEGRADED` 标记）。Swift `Sources/` 零改动（Codable 忽略未知 key）。
 
 > **OAuth 红线与诚实披露**：client id 从配置读，首次设备码授权 100% 用户完成（CLAUDE.md 浏览器验证协议红线，Agent 绝不认证）；CI 无法验证真实 Graph（无账户），仅证解析层（fixture）+ 编排（mock）+ 条件注入降级。token 内存缓存（重启重新设备码，Phase 4 可持久化）；`EKEventStoreChanged` 推送无 Graph 等价，靠 180s 惰性刷新。真机验收：Azure 注册公共客户端应用（允许设备码）→ 填 client id → 设备码授权 `Calendars.Read` → busy/tentative 会议推迟休息。

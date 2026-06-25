@@ -1,7 +1,7 @@
-namespace TimeoutEngine;
+namespace GiveMeABreakEngine;
 
 // MARK: - 快照（evaluate 纯函数的输入，零时间依赖）
-// 镜像 Sources/TimeoutEngine/Models.swift · EngineSnapshot。
+// 镜像 Sources/GiveMeABreakEngine/Models.swift · EngineSnapshot。
 
 /// <summary>evaluate 纯函数的输入快照。</summary>
 public readonly struct EngineSnapshot

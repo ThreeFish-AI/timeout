@@ -1,10 +1,10 @@
 using System.Runtime.InteropServices;
 using Microsoft.Win32;
-using TimeoutEngine;
-using TimeoutEngine.Win32;
-using TimeoutShell.Overlay;
+using GiveMeABreakEngine;
+using GiveMeABreakEngine.Win32;
+using GiveMeABreakShell.Overlay;
 
-namespace TimeoutShell.Adapters;
+namespace GiveMeABreakShell.Adapters;
 
 /// <summary>IOverlayController 实现：多屏全屏遮罩 + WH_KEYBOARD_LL soft-force + Esc 双语义。
 /// 镜像 macOS LiveOverlayController + docs/windows-port-design.md §5 妥协分层。
@@ -101,7 +101,7 @@ public sealed class FullscreenOverlayController : IOverlayController, IDisposabl
                 (_, _, lprc, _) => { list.Add(Marshal.PtrToStructure<RECT>(lprc)); return true; },
                 IntPtr.Zero);
         }
-        catch (Exception ex) { Console.WriteLine($"[Timeout][overlay] EnumDisplayMonitors 失败：{ex.Message}"); }
+        catch (Exception ex) { Console.WriteLine($"[GiveMeABreak][overlay] EnumDisplayMonitors 失败：{ex.Message}"); }
         if (list.Count == 0)
         {
             // 兜底：EnumDisplayMonitors 失败（headless 无桌面会话）时用虚拟主屏，保 Show 不崩。

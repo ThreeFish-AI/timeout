@@ -1,4 +1,4 @@
-namespace TimeoutEngine.Graph;
+namespace GiveMeABreakEngine.Graph;
 
 // MARK: - Graph /me/calendarView 响应 DTO（仅取门控所需字段）
 // 反序列化时用 PropertyNameCaseInsensitive=true（camelCase）。

@@ -1,7 +1,7 @@
 using System.Text.Json;
-using TimeoutEngine;
+using GiveMeABreakEngine;
 
-namespace TimeoutEngine.Tests;
+namespace GiveMeABreakEngine.Tests;
 
 // MARK: - 黄金 fixture 加载（A 层）
 // 读 shared/test-fixtures/*.json，解析为输入。时间统一用 Unix epoch 秒整数（两端一致），

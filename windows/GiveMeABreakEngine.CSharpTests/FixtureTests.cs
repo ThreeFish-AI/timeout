@@ -1,8 +1,8 @@
 using System.Text.Json;
 using Xunit;
-using TimeoutEngine;
+using GiveMeABreakEngine;
 
-namespace TimeoutEngine.Tests;
+namespace GiveMeABreakEngine.Tests;
 
 // MARK: - A 层 · JSON fixture 驱动黄金测试
 // 读 shared/test-fixtures/*.json，调用 Engine 纯函数，比对期望。任一 case 失败汇总报错。
@@ -14,7 +14,7 @@ public class EvaluateFixtureTests
     public void Evaluate_GoldenCases()
     {
         var doc = JsonSerializer.Deserialize<EvaluateFixtureDoc>(
-            FixtureLoader.Load("evaluate.json"), TimeoutJsonOptions.Default)!;
+            FixtureLoader.Load("evaluate.json"), GiveMeABreakJsonOptions.Default)!;
         var failures = new List<string>();
         foreach (var c in doc.Cases)
         {
@@ -34,7 +34,7 @@ public class AdvanceFixtureTests
     public void Advance_GoldenCases()
     {
         var doc = JsonSerializer.Deserialize<AdvanceFixtureDoc>(
-            FixtureLoader.Load("advance.json"), TimeoutJsonOptions.Default)!;
+            FixtureLoader.Load("advance.json"), GiveMeABreakJsonOptions.Default)!;
         var failures = new List<string>();
         foreach (var c in doc.Cases)
         {
@@ -54,7 +54,7 @@ public class SideEffectsFixtureTests
     public void SideEffects_GoldenCases()
     {
         var doc = JsonSerializer.Deserialize<SideEffectsFixtureDoc>(
-            FixtureLoader.Load("side-effects.json"), TimeoutJsonOptions.Default)!;
+            FixtureLoader.Load("side-effects.json"), GiveMeABreakJsonOptions.Default)!;
         var failures = new List<string>();
         foreach (var c in doc.Cases)
         {
@@ -74,7 +74,7 @@ public class MergeBusyFixtureTests
     public void MergeBusy_GoldenCases()
     {
         var doc = JsonSerializer.Deserialize<MergeFixtureDoc>(
-            FixtureLoader.Load("merge-busy.json"), TimeoutJsonOptions.Default)!;
+            FixtureLoader.Load("merge-busy.json"), GiveMeABreakJsonOptions.Default)!;
         var failures = new List<string>();
         foreach (var c in doc.Cases)
         {

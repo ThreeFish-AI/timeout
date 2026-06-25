@@ -1,6 +1,6 @@
-namespace TimeoutEngine.Win32;
+namespace GiveMeABreakEngine.Win32;
 
-// MARK: - Paul Kellet 粉噪音合成（逐字移植 Sources/TimeoutIntegrations/AmbientSoundPlayer.swift:55-80）
+// MARK: - Paul Kellet 粉噪音合成（逐字移植 Sources/GiveMeABreakIntegrations/AmbientSoundPlayer.swift:55-80）
 // 保证 macOS/Windows 两端「同一种雨声」体感一致。纯算法，零依赖，可在 net8.0 单测保真度。
 
 /// <summary>Paul Kellet 粉噪音滤波器，合成指定秒数的单声道 Float32 buffer。

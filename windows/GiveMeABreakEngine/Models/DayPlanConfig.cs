@@ -1,9 +1,9 @@
 using System.Text.Json;
 
-namespace TimeoutEngine;
+namespace GiveMeABreakEngine;
 
 // MARK: - 一日计划配置
-// 镜像 Sources/TimeoutEngine/Models.swift · DayPlanConfig。含容错解码（缺字段补默认）。
+// 镜像 Sources/GiveMeABreakEngine/Models.swift · DayPlanConfig。含容错解码（缺字段补默认）。
 
 /// <summary>一日计划配置：工作窗口 + 间隔/休息/AFK 阈值 + 音频/QQ 音乐开关。</summary>
 public sealed class DayPlanConfig : IEquatable<DayPlanConfig>

@@ -2,13 +2,13 @@
 # Visual Studio Version 17
 VisualStudioVersion = 17.8.34316.72
 MinimumVisualStudioVersion = 10.0.40219.1
-Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "TimeoutEngine", "TimeoutEngine\TimeoutEngine.csproj", "{A1A1A1A1-1111-1111-1111-111111111111}"
+Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "GiveMeABreakEngine", "GiveMeABreakEngine\GiveMeABreakEngine.csproj", "{A1A1A1A1-1111-1111-1111-111111111111}"
 EndProject
-Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "TimeoutEngine.Win32", "TimeoutEngine.Win32\TimeoutEngine.Win32.csproj", "{A2A2A2A2-2222-2222-2222-222222222222}"
+Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "GiveMeABreakEngine.Win32", "GiveMeABreakEngine.Win32\GiveMeABreakEngine.Win32.csproj", "{A2A2A2A2-2222-2222-2222-222222222222}"
 EndProject
-Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "TimeoutShell", "TimeoutShell\TimeoutShell.csproj", "{B5B5B5B5-5555-5555-5555-555555555555}"
+Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "GiveMeABreakShell", "GiveMeABreakShell\GiveMeABreakShell.csproj", "{B5B5B5B5-5555-5555-5555-555555555555}"
 EndProject
-Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "TimeoutEngine.Graph", "TimeoutEngine.Graph\TimeoutEngine.Graph.csproj", "{82E55699-1A80-4710-A9FF-992DDE26DAC5}"
+Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "GiveMeABreakEngine.Graph", "GiveMeABreakEngine.Graph\GiveMeABreakEngine.Graph.csproj", "{82E55699-1A80-4710-A9FF-992DDE26DAC5}"
 EndProject
 Global
 	GlobalSection(SolutionConfigurationPlatforms) = preSolution

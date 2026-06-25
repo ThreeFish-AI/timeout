@@ -1,12 +1,12 @@
-namespace TimeoutEngine;
+namespace GiveMeABreakEngine;
 
 // MARK: - 引擎接线层
-// 镜像 Sources/TimeoutEngine/LiveTimeoutEngine.swift。
+// 镜像 Sources/GiveMeABreakEngine/LiveGiveMeABreakEngine.swift。
 // 汇聚心跳 / 日历 / idle / sleep 输入 → 调用纯函数（Advance/Transition/SideEffectsOf）
 // → 幂等分发副作用到三大 controller → 持久化状态。
 // 仅依赖协议（interface），可用 mock + 虚拟时钟单元测试。
 
-public sealed class LiveTimeoutEngine
+public sealed class LiveGiveMeABreakEngine
 {
     private readonly IClock _clock;
     private readonly ICalendarProvider _calendarProvider;
@@ -22,7 +22,7 @@ public sealed class LiveTimeoutEngine
     /// <summary>用户「立即休息」标志：下个 tick 无视工作窗口/会议进入休息，休息自然结束即清除。</summary>
     private bool _forcedRest;
 
-    public LiveTimeoutEngine(IClock clock,
+    public LiveGiveMeABreakEngine(IClock clock,
         ICalendarProvider calendarProvider,
         IOverlayController overlay,
         IMusicController music,
@@ -42,7 +42,7 @@ public sealed class LiveTimeoutEngine
 
     public void SetPersistHandler(Action<EngineState> handler) => _persistHandler = handler;
 
-    /// <summary>心跳 tick（Heartbeat 每秒调用）。镜像 LiveTimeoutEngine.swift tick() 时序。</summary>
+    /// <summary>心跳 tick（Heartbeat 每秒调用）。镜像 LiveGiveMeABreakEngine.swift tick() 时序。</summary>
     public void Tick()
     {
         var now = _clock.Now();

@@ -2,9 +2,9 @@ using System.Net.Http;
 using System.Net.Http.Headers;
 using System.Text.Json;
 using Microsoft.Identity.Client;
-using TimeoutEngine.Graph;
+using GiveMeABreakEngine.Graph;
 
-namespace TimeoutShell.Adapters;
+namespace GiveMeABreakShell.Adapters;
 
 // IGraphClient 实现 · MSAL 设备码 flow + HttpClient GET /me/calendarView（壳专属，net8.0-windows）。
 // OAuth 红线（CLAUDE.md 浏览器验证协议）：client id 从配置读，设备码 callback 仅打印 URL+code，
@@ -49,7 +49,7 @@ public sealed class MsalGraphClient : IGraphClient, IDisposable
             // 后续进程内：AcquireTokenSilent 命中 MSAL token 缓存（静默）。
             result = await _app.AcquireTokenWithDeviceCode(new[] { Scopes }, dcr =>
             {
-                Console.WriteLine($"[Timeout][graph] 设备码授权：访问 {dcr.VerificationUrl} 输入 {dcr.UserCode}");
+                Console.WriteLine($"[GiveMeABreak][graph] 设备码授权：访问 {dcr.VerificationUrl} 输入 {dcr.UserCode}");
                 return Task.CompletedTask;
             }).ExecuteAsync(ct);
         }

@@ -2,17 +2,17 @@
 # Visual Studio Version 17
 VisualStudioVersion = 17.8.34316.72
 MinimumVisualStudioVersion = 10.0.40219.1
-Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "TimeoutEngine", "TimeoutEngine\TimeoutEngine.csproj", "{A1A1A1A1-1111-1111-1111-111111111111}"
+Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "GiveMeABreakEngine", "GiveMeABreakEngine\GiveMeABreakEngine.csproj", "{A1A1A1A1-1111-1111-1111-111111111111}"
 EndProject
-Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "TimeoutEngine.Win32", "TimeoutEngine.Win32\TimeoutEngine.Win32.csproj", "{A2A2A2A2-2222-2222-2222-222222222222}"
+Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "GiveMeABreakEngine.Win32", "GiveMeABreakEngine.Win32\GiveMeABreakEngine.Win32.csproj", "{A2A2A2A2-2222-2222-2222-222222222222}"
 EndProject
-Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "TimeoutEngine.CSharpTests", "TimeoutEngine.CSharpTests\TimeoutEngine.CSharpTests.csproj", "{A3A3A3A3-3333-3333-3333-333333333333}"
+Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "GiveMeABreakEngine.CSharpTests", "GiveMeABreakEngine.CSharpTests\GiveMeABreakEngine.CSharpTests.csproj", "{A3A3A3A3-3333-3333-3333-333333333333}"
 EndProject
-Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "TimeoutEngine.Win32Tests", "TimeoutEngine.Win32Tests\TimeoutEngine.Win32Tests.csproj", "{A4A4A4A4-4444-4444-4444-444444444444}"
+Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "GiveMeABreakEngine.Win32Tests", "GiveMeABreakEngine.Win32Tests\GiveMeABreakEngine.Win32Tests.csproj", "{A4A4A4A4-4444-4444-4444-444444444444}"
 EndProject
-Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "TimeoutEngine.Graph", "TimeoutEngine.Graph\TimeoutEngine.Graph.csproj", "{A917EC47-CBD3-4DB4-BB51-6A679B6F4341}"
+Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "GiveMeABreakEngine.Graph", "GiveMeABreakEngine.Graph\GiveMeABreakEngine.Graph.csproj", "{A917EC47-CBD3-4DB4-BB51-6A679B6F4341}"
 EndProject
-Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "TimeoutEngine.GraphTests", "TimeoutEngine.GraphTests\TimeoutEngine.GraphTests.csproj", "{07E8C1DF-51A1-4866-90F2-148935CD92F9}"
+Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "GiveMeABreakEngine.GraphTests", "GiveMeABreakEngine.GraphTests\GiveMeABreakEngine.GraphTests.csproj", "{07E8C1DF-51A1-4866-90F2-148935CD92F9}"
 EndProject
 Global
 	GlobalSection(SolutionConfigurationPlatforms) = preSolution

@@ -1,6 +1,6 @@
 <?xml version="1.0" encoding="utf-8"?>
 <assembly manifestVersion="1.0" xmlns="urn:schemas-microsoft-com:asm.v1">
-  <assemblyIdentity version="0.1.0.0" name="TimeoutShell.app" />
+  <assemblyIdentity version="0.1.0.0" name="GiveMeABreakShell.app" />
   <!-- 作为用户进程运行（asInvoker），无管理员提权；开机自启走 HKCU 非提权注册表项 -->
   <trustInfo xmlns="urn:schemas-microsoft-com:asm.v2">
     <security>

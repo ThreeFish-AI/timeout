@@ -1,7 +1,7 @@
 using System.Windows.Threading;
-using TimeoutEngine;
+using GiveMeABreakEngine;
 
-namespace TimeoutShell;
+namespace GiveMeABreakShell;
 
 // IHeartbeat · System.Threading.Timer 1Hz。回调 marshal 到 UI Dispatcher
 // （对齐 macOS Heartbeat 主队列，保证 overlay/music 操作 UI 线程）。

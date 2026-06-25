@@ -1,7 +1,7 @@
-namespace TimeoutEngine;
+namespace GiveMeABreakEngine;
 
 // MARK: - 会议时间线
-// 镜像 Sources/TimeoutEngine/Models.swift · DateRange。半开区间 [start, end)。
+// 镜像 Sources/GiveMeABreakEngine/Models.swift · DateRange。半开区间 [start, end)。
 
 /// <summary>半开区间 [start, end)：end 时刻视为已结束。</summary>
 public sealed class DateRange : IEquatable<DateRange>

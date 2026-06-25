@@ -1,7 +1,7 @@
 using Xunit;
-using TimeoutEngine;
+using GiveMeABreakEngine;
 
-namespace TimeoutEngine.Tests;
+namespace GiveMeABreakEngine.Tests;
 
 // MARK: - B 层 · 时序场景镜像测试（镜像 tests/EngineTransitionCases.swift）
 // 忠实重写 Swift Simulator（1Hz tick），每个测试注释标注对应 Swift 用例名，便于交叉 code review。

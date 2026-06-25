@@ -1,6 +1,6 @@
 using System.Runtime.InteropServices;
 
-namespace TimeoutEngine.Win32;
+namespace GiveMeABreakEngine.Win32;
 
 // MARK: - 媒体键发送（mockable，down+up 序列可在 net8.0 测试）
 // 把「实际 SendInput」收敛到 ISendInputPort，使组装逻辑脱离 Windows 运行时可测。

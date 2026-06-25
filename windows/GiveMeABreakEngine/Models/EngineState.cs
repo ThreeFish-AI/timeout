@@ -1,7 +1,7 @@
-namespace TimeoutEngine;
+namespace GiveMeABreakEngine;
 
 // MARK: - 引擎状态（单一事实源，可持久化以支持崩溃/重启恢复）
-// 镜像 Sources/TimeoutEngine/Models.swift · EngineState。
+// 镜像 Sources/GiveMeABreakEngine/Models.swift · EngineState。
 // 采用 record + init：支持 with 表达式做非破坏性更新，对齐 Swift struct 值语义。
 // 各端本地持久化，不跨平台互换（见 docs/windows-port-design.md §5）。
 

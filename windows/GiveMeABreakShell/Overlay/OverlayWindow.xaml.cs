@@ -2,9 +2,9 @@ using System.Windows;
 using System.Windows.Input;
 using System.Windows.Interop;
 using System.Windows.Threading;
-using TimeoutEngine.Win32;
+using GiveMeABreakEngine.Win32;
 
-namespace TimeoutShell.Overlay;
+namespace GiveMeABreakShell.Overlay;
 
 /// <summary>全屏遮罩窗口（WPF）。镜像 macOS LiveOverlayController + docs/windows-port-design.md §5。</summary>
 public partial class OverlayWindow : Window
@@ -77,7 +77,7 @@ public partial class OverlayWindow : Window
         }
         catch (Exception ex)
         {
-            Console.WriteLine($"[Timeout][overlay] SetWindowPos 强制置顶失败（降级）：{ex.Message}");
+            Console.WriteLine($"[GiveMeABreak][overlay] SetWindowPos 强制置顶失败（降级）：{ex.Message}");
         }
     }
 }

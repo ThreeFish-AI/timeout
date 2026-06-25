@@ -1,6 +1,6 @@
 using System.Runtime.InteropServices;
 
-namespace TimeoutEngine.Win32;
+namespace GiveMeABreakEngine.Win32;
 
 // MARK: - Win32 P/Invoke 声明（net8.0 可编译，运行时需 Windows）
 // [DllImport] 是元数据，macOS 上 dotnet build 不报错（不检查 DLL 存在）；执行时才 P/Invoke。

@@ -1,7 +1,7 @@
-namespace TimeoutEngine;
+namespace GiveMeABreakEngine;
 
 // MARK: - 工作窗口
-// 镜像 Sources/TimeoutEngine/Models.swift · WorkWindow。一天内的「工作时段」，支持跨午夜。
+// 镜像 Sources/GiveMeABreakEngine/Models.swift · WorkWindow。一天内的「工作时段」，支持跨午夜。
 
 /// <summary>一天内的「工作时段」（如 09:00–12:00），每日重复。支持跨午夜。</summary>
 public sealed class WorkWindow : IEquatable<WorkWindow>

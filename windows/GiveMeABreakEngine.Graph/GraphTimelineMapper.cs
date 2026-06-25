@@ -1,7 +1,7 @@
 using System.Globalization;
-using TimeoutEngine;
+using GiveMeABreakEngine;
 
-namespace TimeoutEngine.Graph;
+namespace GiveMeABreakEngine.Graph;
 
 // MARK: - 纯函数：Graph 事件 → 合并后的 MeetingTimeline
 // 对齐 macOS LiveCalendarProvider.refresh 的 filter（busy/tentative）/map（DateRange）/merge（mergeBusyIntervals）。

@@ -1,8 +1,8 @@
 <Project Sdk="Microsoft.NET.Sdk">
 
-  <!-- Timeout · Windows 移植 Phase 0 · xUnit 测试项目。
+  <!-- Give me a break · Windows 移植 Phase 0 · xUnit 测试项目。
        A 层：JSON fixture 驱动黄金测试（读 ../../shared/test-fixtures/*.json）。
-       B 层：镜像 tests/ 时序场景（Simulator + LiveTimeoutEngine 接线 + ConfigStore）。 -->
+       B 层：镜像 tests/ 时序场景（Simulator + LiveGiveMeABreakEngine 接线 + ConfigStore）。 -->
   <PropertyGroup>
     <TargetFramework>net8.0</TargetFramework>
     <ImplicitUsings>enable</ImplicitUsings>
@@ -10,8 +10,8 @@
     <LangVersion>latest</LangVersion>
     <IsPackable>false</IsPackable>
     <IsTestProject>true</IsTestProject>
-    <RootNamespace>TimeoutEngine.Tests</RootNamespace>
-    <AssemblyName>TimeoutEngine.CSharpTests</AssemblyName>
+    <RootNamespace>GiveMeABreakEngine.Tests</RootNamespace>
+    <AssemblyName>GiveMeABreakEngine.CSharpTests</AssemblyName>
   </PropertyGroup>
 
   <ItemGroup>
@@ -24,7 +24,7 @@
   </ItemGroup>
 
   <ItemGroup>
-    <ProjectReference Include="..\TimeoutEngine\TimeoutEngine.csproj" />
+    <ProjectReference Include="..\GiveMeABreakEngine\GiveMeABreakEngine.csproj" />
   </ItemGroup>
 
   <!-- 共享黄金 fixture 复制到输出目录，运行时经 AppContext.BaseDirectory/shared/*.json 读取。 -->

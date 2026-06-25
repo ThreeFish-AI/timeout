@@ -1,7 +1,7 @@
 using Xunit;
-using TimeoutEngine.Win32;
+using GiveMeABreakEngine.Win32;
 
-namespace TimeoutEngine.Win32Tests;
+namespace GiveMeABreakEngine.Win32Tests;
 
 // MARK: - Win32 常量值锁（防漂移；net8.0 本地可验证）
 // 这些常量是 WH_KEYBOARD_LL 钩子 + WS_EX_TOPMOST 窗口互操作的基础，值错会导致拦截/置顶失效。

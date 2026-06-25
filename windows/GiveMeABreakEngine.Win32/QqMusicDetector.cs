@@ -1,9 +1,9 @@
 using System.Diagnostics;
 
-namespace TimeoutEngine.Win32;
+namespace GiveMeABreakEngine.Win32;
 
 // MARK: - QQ 音乐进程检测（mockable，对齐 macOS NSWorkspace.runningApplications）
-// 对齐 Sources/TimeoutIntegrations/LiveMusicController.swift 的 QQ 音乐联动语义。
+// 对齐 Sources/GiveMeABreakIntegrations/LiveMusicController.swift 的 QQ 音乐联动语义。
 
 /// <summary>进程名查询的可注入端口。生产用 ProcessNameProvider（调 Process.GetProcessesByName）；
 /// 测试用 mock。</summary>

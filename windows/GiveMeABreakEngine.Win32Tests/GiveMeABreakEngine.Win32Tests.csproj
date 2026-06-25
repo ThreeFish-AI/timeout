@@ -1,6 +1,6 @@
 <Project Sdk="Microsoft.NET.Sdk">
 
-  <!-- Timeout · Phase 1 · Win32 互操作层测试（net8.0，macOS 本地可跑）。
+  <!-- Give me a break · Phase 1 · Win32 互操作层测试（net8.0，macOS 本地可跑）。
        这是 Phase 1 唯一能在 macOS 本地验证的层（粉噪音保真度/空闲回绕/媒体键序列）。 -->
   <PropertyGroup>
     <TargetFramework>net8.0</TargetFramework>
@@ -9,7 +9,7 @@
     <LangVersion>latest</LangVersion>
     <IsPackable>false</IsPackable>
     <IsTestProject>true</IsTestProject>
-    <RootNamespace>TimeoutEngine.Win32Tests</RootNamespace>
+    <RootNamespace>GiveMeABreakEngine.Win32Tests</RootNamespace>
   </PropertyGroup>
 
   <ItemGroup>
@@ -22,7 +22,7 @@
   </ItemGroup>
 
   <ItemGroup>
-    <ProjectReference Include="..\TimeoutEngine.Win32\TimeoutEngine.Win32.csproj" />
+    <ProjectReference Include="..\GiveMeABreakEngine.Win32\GiveMeABreakEngine.Win32.csproj" />
   </ItemGroup>
 
 </Project>

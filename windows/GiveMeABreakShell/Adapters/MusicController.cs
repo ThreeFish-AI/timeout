@@ -1,9 +1,9 @@
 using System.Diagnostics;
 using System.IO;
-using TimeoutEngine;
-using TimeoutEngine.Win32;
+using GiveMeABreakEngine;
+using GiveMeABreakEngine.Win32;
 
-namespace TimeoutShell.Adapters;
+namespace GiveMeABreakShell.Adapters;
 
 // IMusicController 实现 · 粉噪音（可靠底噪）+ QQ 音乐媒体键联动（可选增强）。
 // 对齐 macOS LiveMusicController：ambientSoundEnabled 控粉噪音，controlQQMusic 控 QQ 音乐媒体键。
@@ -36,21 +36,21 @@ public sealed class MusicController : IMusicController, IDisposable
         if (_config.ControlQQMusic)
         {
             _mediaKey.SendPlayPause();   // toggle → 暂停（保留队列/进度）
-            Console.WriteLine("[Timeout][music] 发送 pause 媒体键（toggle，保留队列）");
+            Console.WriteLine("[GiveMeABreak][music] 发送 pause 媒体键（toggle，保留队列）");
         }
     }
 
     private void StartQQMusic()
     {
         bool running = _qqDetector.IsRunning();
-        Console.WriteLine($"[Timeout][music] QQ 音乐：running={running}");
+        Console.WriteLine($"[GiveMeABreak][music] QQ 音乐：running={running}");
         if (!running) QqMusicLauncher.TryLaunch();
         // 启动后稍候再发媒体键，确保 QQ 音乐已注册为 Now Playing（对齐 macOS 1.5s 等待）
         _ = Task.Run(async () =>
         {
             await Task.Delay(1500);
             _mediaKey.SendPlayPause();
-            Console.WriteLine("[Timeout][music] 发送 play 媒体键");
+            Console.WriteLine("[GiveMeABreak][music] 发送 play 媒体键");
         });
     }
 
@@ -75,15 +75,15 @@ internal static class QqMusicLauncher
                 try
                 {
                     Process.Start(new ProcessStartInfo(path) { UseShellExecute = true });
-                    Console.WriteLine("[Timeout][music] 已拉起 QQ 音乐");
+                    Console.WriteLine("[GiveMeABreak][music] 已拉起 QQ 音乐");
                     return;
                 }
                 catch (Exception ex)
                 {
-                    Console.WriteLine($"[Timeout][music] 拉起 QQ 音乐失败：{ex.Message}");
+                    Console.WriteLine($"[GiveMeABreak][music] 拉起 QQ 音乐失败：{ex.Message}");
                 }
             }
         }
-        Console.WriteLine("[Timeout][music] 未找到 QQ 音乐，跳过启动");
+        Console.WriteLine("[GiveMeABreak][music] 未找到 QQ 音乐，跳过启动");
     }
 }

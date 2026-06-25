@@ -1,8 +1,8 @@
 {
   "$schema": "http://json-schema.org/draft-07/schema#",
   "$id": "./config.schema.json",
-  "title": "Timeout DayPlanConfig",
-  "description": "Timeout 跨平台一日计划配置权威定义。Swift Codable 与 C# System.Text.Json 双向兼容；容错解码（缺字段补默认）+ schema 迁移见 docs/windows-port-design.md §6。TimeOfDay 序列化为裸整数（自午夜秒），EnginePhase 序列化为 camelCase 字符串。",
+  "title": "Give me a break DayPlanConfig",
+  "description": "Give me a break 跨平台一日计划配置权威定义。Swift Codable 与 C# System.Text.Json 双向兼容；容错解码（缺字段补默认）+ schema 迁移见 docs/windows-port-design.md §6。TimeOfDay 序列化为裸整数（自午夜秒），EnginePhase 序列化为 camelCase 字符串。",
   "type": "object",
   "additionalProperties": false,
   "required": ["schemaVersion", "workWindows", "workIntervalSeconds", "restDurationSeconds", "afkThresholdSeconds"],

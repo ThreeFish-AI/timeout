@@ -1,11 +1,11 @@
 using System.Runtime.InteropServices;
 
-namespace TimeoutEngine.Win32;
+namespace GiveMeABreakEngine.Win32;
 
 // MARK: - 全屏遮罩 + 低级键盘钩子 P/Invoke（net8.0 可编译，运行时需 Windows）
 // 镜像 docs/windows-port-design.md §5：WS_EX_TOPMOST + WH_KEYBOARD_LL 妥协分层。
 // P/Invoke 声明是元数据，macOS 可编译；执行在 Windows 壳内。
-// public：壳（TimeoutShell）多处调用（KeyboardHook/OverlayWindow/Controller），互操作库本职。
+// public：壳（GiveMeABreakShell）多处调用（KeyboardHook/OverlayWindow/Controller），互操作库本职。
 
 /// <summary>全屏遮罩 + 键盘钩子相关 Win32 P/Invoke。</summary>
 public static class NativeOverlayMethods

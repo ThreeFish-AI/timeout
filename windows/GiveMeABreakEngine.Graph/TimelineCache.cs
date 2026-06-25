@@ -1,6 +1,6 @@
-using TimeoutEngine;
+using GiveMeABreakEngine;
 
-namespace TimeoutEngine.Graph;
+namespace GiveMeABreakEngine.Graph;
 
 // MARK: - 限流 + 线程安全缓存（对齐 macOS cached/lastRefresh/refreshInFlight/minRefreshInterval）
 // lazyInterval=180s（引擎 1Hz tick 惰性刷新）；minInterval=60s（显式刷新最低间隔）。

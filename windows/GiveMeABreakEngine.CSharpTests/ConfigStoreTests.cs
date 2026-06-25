@@ -1,14 +1,14 @@
 using Xunit;
-using TimeoutEngine;
+using GiveMeABreakEngine;
 
-namespace TimeoutEngine.Tests;
+namespace GiveMeABreakEngine.Tests;
 
 // MARK: - B 层 · ConfigStore 镜像测试（镜像 tests/ConfigStoreCases.swift）
 
 public class ConfigStoreTests
 {
     private static string MakeTempDir()
-        => Path.Combine(Path.GetTempPath(), "timeout-csharp-test-" + Guid.NewGuid().ToString("N"));
+        => Path.Combine(Path.GetTempPath(), "givemeabreak-csharp-test-" + Guid.NewGuid().ToString("N"));
 
     // 镜像 ConfigStoreCases "ConfigStore config round-trip"
     [Fact]

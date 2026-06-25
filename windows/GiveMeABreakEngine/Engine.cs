@@ -1,7 +1,7 @@
-namespace TimeoutEngine;
+namespace GiveMeABreakEngine;
 
 // MARK: - 纯函数引擎（FSM 决策核心）
-// 镜像 Sources/TimeoutEngine/Engine.swift（evaluate / advance / transition / sideEffects / mergeBusyIntervals）。
+// 镜像 Sources/GiveMeABreakEngine/Engine.swift（evaluate / advance / transition / sideEffects / mergeBusyIntervals）。
 // 分支顺序与谓词优先级与 Swift 实现逐字对齐——这是 Bug2 类回归高发区，严禁擅自调整。
 
 /// <summary>FSM 纯函数集合。无时间依赖、无副作用，便于单测与跨端黄金验证。</summary>

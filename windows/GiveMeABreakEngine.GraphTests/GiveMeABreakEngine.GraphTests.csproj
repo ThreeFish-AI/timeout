@@ -1,6 +1,6 @@
 <Project Sdk="Microsoft.NET.Sdk">
 
-  <!-- Timeout · Phase 3 · Graph 解析层测试（net8.0，macOS 本地可跑）。
+  <!-- Give me a break · Phase 3 · Graph 解析层测试（net8.0，macOS 本地可跑）。
        fixture 驱动（Graph JSON → MeetingTimeline）+ 缓存限流 + Provider mock IGraphClient。 -->
   <PropertyGroup>
     <TargetFramework>net8.0</TargetFramework>
@@ -9,7 +9,7 @@
     <LangVersion>latest</LangVersion>
     <IsPackable>false</IsPackable>
     <IsTestProject>true</IsTestProject>
-    <RootNamespace>TimeoutEngine.GraphTests</RootNamespace>
+    <RootNamespace>GiveMeABreakEngine.GraphTests</RootNamespace>
   </PropertyGroup>
 
   <ItemGroup>
@@ -22,7 +22,7 @@
   </ItemGroup>
 
   <ItemGroup>
-    <ProjectReference Include="..\TimeoutEngine.Graph\TimeoutEngine.Graph.csproj" />
+    <ProjectReference Include="..\GiveMeABreakEngine.Graph\GiveMeABreakEngine.Graph.csproj" />
   </ItemGroup>
 
   <ItemGroup>

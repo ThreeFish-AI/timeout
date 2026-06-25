@@ -1,4 +1,4 @@
-# Timeout — 文档质量门禁（链接 / Markdown / Mermaid / 知识索引）。
+# Give me a break — 文档质量门禁（链接 / Markdown / Mermaid / 知识索引）。
 # 维度边界（正交分解）：只负责文档与约定校验，跑在 ubuntu-latest（文档校验零 macOS 依赖，省约 10× 额度）。
 # 复用驱动（Reuse-Driven）：链接→lychee、Markdown→markdownlint-cli2、Mermaid→mmdc，均业界事实标准；
 #   仅「知识索引同步」一处项目特有语义自写最小脚本（scripts/check_knowledge_map.sh）。
@@ -67,7 +67,7 @@ jobs:
         # 全量预渲染成 SVG：渲染成功 = 语法/主题/色彩引用全有效的充分证明（覆盖 AGENTS.md Mermaid 规范三条）。
         run: |
           set -euo pipefail
-          for f in README.md docs/timeout-design.md docs/windows-port-design.md .agents/browser-validation.md; do
+          for f in README.md docs/give-me-a-break-design.md docs/windows-port-design.md .agents/browser-validation.md; do
             npx -y -p @mermaid-js/mermaid-cli mmdc -i "$f" -o "/tmp/$(basename "$f" .md).svg" \
               -p .github/mmdc-puppeteer-config.json
           done

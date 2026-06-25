@@ -1,9 +1,9 @@
 using Xunit;
-using TimeoutEngine;
+using GiveMeABreakEngine;
 
-namespace TimeoutEngine.Tests;
+namespace GiveMeABreakEngine.Tests;
 
-// MARK: - B 层 · LiveTimeoutEngine 接线镜像测试（镜像 tests/EngineWiringCases.swift）
+// MARK: - B 层 · LiveGiveMeABreakEngine 接线镜像测试（镜像 tests/EngineWiringCases.swift）
 // 用 Mock 注入，断言控制器调用序列与状态机接线。每个测试注释标注对应 Swift 用例名。
 
 public class EngineWiringTests
@@ -19,7 +19,7 @@ public class EngineWiringTests
         var music = new MockMusic();
         var calProv = new StubCalendar { Timeline = new(new() { new(T0.AddSeconds(TestHelpers.Minutes(30)), T0.AddSeconds(TestHelpers.Minutes(60))) }) };
         var sys = new MockSystemState();
-        var engine = new LiveTimeoutEngine(clock, calProv, overlay, music, sys,
+        var engine = new LiveGiveMeABreakEngine(clock, calProv, overlay, music, sys,
             TestHelpers.FullDayConfig(TestHelpers.Minutes(50), TestHelpers.Minutes(10)),
             new EngineState { Phase = EnginePhase.Working, LastTickAt = T0 });
 
@@ -50,7 +50,7 @@ public class EngineWiringTests
         var music = new MockMusic();
         var calProv = new StubCalendar();
         var sys = new MockSystemState();
-        var engine = new LiveTimeoutEngine(clock, calProv, overlay, music, sys,
+        var engine = new LiveGiveMeABreakEngine(clock, calProv, overlay, music, sys,
             TestHelpers.FullDayConfig(TestHelpers.Minutes(10), TestHelpers.Minutes(2)),
             new EngineState { Phase = EnginePhase.Working, LastTickAt = T0 });
 
@@ -77,7 +77,7 @@ public class EngineWiringTests
         var music = new MockMusic();
         var calProv = new StubCalendar();
         var sys = new MockSystemState();
-        var engine = new LiveTimeoutEngine(clock, calProv, overlay, music, sys,
+        var engine = new LiveGiveMeABreakEngine(clock, calProv, overlay, music, sys,
             TestHelpers.FullDayConfig(TestHelpers.Minutes(50), TestHelpers.Minutes(10)),
             new EngineState { Phase = EnginePhase.Working, LastTickAt = T0 });
 
@@ -100,7 +100,7 @@ public class EngineWiringTests
     public void U11_FastForward_ShortOutage_Advances()
     {
         var clock = new MockClock(T0);
-        var engine = new LiveTimeoutEngine(clock, new StubCalendar(), new MockOverlay(), new MockMusic(), new MockSystemState(),
+        var engine = new LiveGiveMeABreakEngine(clock, new StubCalendar(), new MockOverlay(), new MockMusic(), new MockSystemState(),
             TestHelpers.FullDayConfig(TestHelpers.Minutes(50), TestHelpers.Minutes(10)),
             new EngineState { Phase = EnginePhase.Working, WorkAccumulatedSeconds = 1500, LastTickAt = T0 });
 
@@ -114,7 +114,7 @@ public class EngineWiringTests
     public void U11_FastForward_LongOutage_Frozen()
     {
         var clock = new MockClock(T0);
-        var engine = new LiveTimeoutEngine(clock, new StubCalendar(), new MockOverlay(), new MockMusic(), new MockSystemState(),
+        var engine = new LiveGiveMeABreakEngine(clock, new StubCalendar(), new MockOverlay(), new MockMusic(), new MockSystemState(),
             TestHelpers.FullDayConfig(TestHelpers.Minutes(50), TestHelpers.Minutes(10)),
             new EngineState { Phase = EnginePhase.Working, WorkAccumulatedSeconds = 1500, LastTickAt = T0 });
 
@@ -131,7 +131,7 @@ public class EngineWiringTests
         var clock = new MockClock(T0);
         var overlay = new MockOverlay();
         var music = new MockMusic();
-        var engine = new LiveTimeoutEngine(clock, new StubCalendar(), overlay, music, new MockSystemState(),
+        var engine = new LiveGiveMeABreakEngine(clock, new StubCalendar(), overlay, music, new MockSystemState(),
             TestHelpers.FullDayConfig(TestHelpers.Minutes(50), TestHelpers.Minutes(10)),
             new EngineState { Phase = EnginePhase.Working, LastTickAt = T0 });
 
@@ -157,7 +157,7 @@ public class EngineWiringTests
     {
         var clock = new MockClock(T0);
         var overlay = new MockOverlay();
-        var engine = new LiveTimeoutEngine(clock, new StubCalendar(), overlay, new MockMusic(), new MockSystemState(),
+        var engine = new LiveGiveMeABreakEngine(clock, new StubCalendar(), overlay, new MockMusic(), new MockSystemState(),
             TestHelpers.FullDayConfig(TestHelpers.Minutes(50), TestHelpers.Minutes(10)),
             new EngineState { Phase = EnginePhase.Working, LastTickAt = T0 });
 
@@ -186,7 +186,7 @@ public class EngineWiringTests
         var clock = new MockClock(T0);
         var overlay = new MockOverlay();
         var config = new DayPlanConfig { WorkWindows = new(), WorkIntervalSeconds = TestHelpers.Minutes(50), RestDurationSeconds = TestHelpers.Minutes(2) };
-        var engine = new LiveTimeoutEngine(clock, new StubCalendar(), overlay, new MockMusic(), new MockSystemState(),
+        var engine = new LiveGiveMeABreakEngine(clock, new StubCalendar(), overlay, new MockMusic(), new MockSystemState(),
             config, new EngineState { Phase = EnginePhase.OffDuty, LastTickAt = T0 });
 
         TestHelpers.RunTicks(engine, clock, 10);
@@ -213,7 +213,7 @@ public class EngineWiringTests
         var clock = new MockClock(T0);
         var overlay = new MockOverlay();
         var music = new MockMusic();
-        var engine = new LiveTimeoutEngine(clock, new StubCalendar(), overlay, music, new MockSystemState(),
+        var engine = new LiveGiveMeABreakEngine(clock, new StubCalendar(), overlay, music, new MockSystemState(),
             TestHelpers.FullDayConfig(TestHelpers.Minutes(50), TestHelpers.Minutes(10)),
             new EngineState { Phase = EnginePhase.Working, LastTickAt = T0 });
 

@@ -1,7 +1,7 @@
-using TimeoutEngine;
-using TimeoutEngine.Win32;
+using GiveMeABreakEngine;
+using GiveMeABreakEngine.Win32;
 
-namespace TimeoutShell.Adapters;
+namespace GiveMeABreakShell.Adapters;
 
 // ISystemStateProvider · 空闲检测（Win32IdleProbe.GetCurrentIdleSeconds 封装 native）
 // + 睡眠标志（PowerEventBridge 置位）。对齐 macOS SystemSensors + NSWorkspace 睡眠观察者。

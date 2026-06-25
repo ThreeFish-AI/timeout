@@ -1,7 +1,7 @@
 using NAudio.Wave;
-using TimeoutEngine.Win32;
+using GiveMeABreakEngine.Win32;
 
-namespace TimeoutShell.Adapters;
+namespace GiveMeABreakShell.Adapters;
 
 // 粉噪音播放 · NAudio WasapiOut 循环播放 PinkNoiseGenerator 产出的 8s buffer。
 // 对齐 macOS AmbientSoundPlayer：预生成 buffer 无缝循环 + 音量 0.4 + 启动失败降级不崩。
@@ -27,12 +27,12 @@ public sealed class WasapiAmbientPlayer : IDisposable
             _player.Init(_source.ToWaveProvider());
             _player.Play();
             IsPlaying = true;
-            Console.WriteLine("[Timeout][ambient] 粉噪音已启动");
+            Console.WriteLine("[GiveMeABreak][ambient] 粉噪音已启动");
         }
         catch (Exception ex)
         {
             // CI 无音频设备 / headless：降级静默（对齐 macOS do/catch 不崩语义）
-            Console.WriteLine($"[Timeout][ambient] WASAPI 启动失败（降级静默）：{ex.Message}");
+            Console.WriteLine($"[GiveMeABreak][ambient] WASAPI 启动失败（降级静默）：{ex.Message}");
         }
     }
 
@@ -44,7 +44,7 @@ public sealed class WasapiAmbientPlayer : IDisposable
         _player = null;
         _source = null;
         IsPlaying = false;
-        Console.WriteLine("[Timeout][ambient] 粉噪音已停止");
+        Console.WriteLine("[GiveMeABreak][ambient] 粉噪音已停止");
     }
 
     public void Dispose() => Stop();

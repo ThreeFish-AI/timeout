@@ -1,8 +1,8 @@
 using System.Text.Json.Serialization;
 
-namespace TimeoutEngine;
+namespace GiveMeABreakEngine;
 
-// 镜像 Sources/TimeoutEngine/Models.swift · EnginePhase（String enum）。
+// 镜像 Sources/GiveMeABreakEngine/Models.swift · EnginePhase（String enum）。
 // JSON 序列化为 camelCase 字符串（"offDuty" 等），对齐 Swift Codable 默认形态。
 
 /// <summary>引擎状态机相位。</summary>

@@ -1,7 +1,7 @@
 using Xunit;
-using TimeoutEngine.Win32;
+using GiveMeABreakEngine.Win32;
 
-namespace TimeoutEngine.Win32Tests;
+namespace GiveMeABreakEngine.Win32Tests;
 
 // MARK: - 媒体键 down+up 序列（mock ISendInputPort，不实际触发系统媒体键）
 // 对齐 macOS LiveMusicController.postMediaKey 的 down/up 循环语义。

@@ -1,9 +1,9 @@
 using System.Text.Json.Serialization;
 
-namespace TimeoutEngine;
+namespace GiveMeABreakEngine;
 
 // MARK: - 当日时刻
-// 镜像 Sources/TimeoutEngine/Models.swift · TimeOfDay（RawRepresentable<Int>）。
+// 镜像 Sources/GiveMeABreakEngine/Models.swift · TimeOfDay（RawRepresentable<Int>）。
 // JSON 序列化为裸整数 rawValue，对齐 Swift Codable（见 _JsonConverters.cs）。
 
 /// <summary>自午夜起的秒数 [0, 86400)，可持久化。</summary>

@@ -37,7 +37,7 @@
   1. **Git Discipline**: 默认严禁调用 git commit；当用户显式要求提交时，一律使用 Claude Code 的自定义 Slash Command: `/commit-no-push` 进行操作（若非 Claude Code 运行环境，则读取 /commit-no-push 命令中的规则执行）。严禁执行 Rebase；
   2. **Temp Management**: 临时产物（执行计划等）一律收敛至 `.temp/` 并及时清理；
   3. **Link Validity**: 确保所有引用的 URL 可访问且具备明确的上下文价值；
-  4. **Testing**: 统一在 tests/ 下维护测试用例，区分单元测试（unit）和集成测试（integration），所有测试的本地运行总时间控制在 3 min 以内。**macOS Swift 适配**：Command Line Tools 不含 XCTest/Swift Testing，故 Swift 项目采用 `tests/` 下自建的极简断言运行器（`expect`/`test` + 退出码，经 `make test` → `swift run` 驱动），语义对齐 XCTest；详见 [Timeout README](./README.md)；
+  4. **Testing**: 统一在 tests/ 下维护测试用例，区分单元测试（unit）和集成测试（integration），所有测试的本地运行总时间控制在 3 min 以内。**macOS Swift 适配**：Command Line Tools 不含 XCTest/Swift Testing，故 Swift 项目采用 `tests/` 下自建的极简断言运行器（`expect`/`test` + 退出码，经 `make test` → `swift run` 驱动），语义对齐 XCTest；详见 [Give me a break README](./README.md)；
   5. **Pre-commit Hooks**: 首次克隆仓库使用 `uv run pre-commit install` 激活本地 Git hooks，使 Ruff lint（含 auto-fix）、Ruff format 及通用代码卫生检查在每次 commit 前自动运行。若 hooks 自动修复了问题，提交会被中断，执行 `git add -p` 审阅修复内容后重新提交即可；
   6. **Issue**: 在 [issue.md](.agents/issue.md) 中维护你处理过的 Issue 摘要（问题描述、表因根因、处理方式、后续防范、同类问题影响与处理注意事项等），便于同类问题的跨上下文处理；注意识别相同 Issue，不要同 Issue 多处维护；
 - **Package Management Standardization (包管理规范)**:

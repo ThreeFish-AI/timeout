@@ -1,6 +1,6 @@
-namespace TimeoutEngine;
+namespace GiveMeABreakEngine;
 
-// 镜像 Sources/TimeoutEngine/Models.swift · MeetingTimeline。
+// 镜像 Sources/GiveMeABreakEngine/Models.swift · MeetingTimeline。
 // 合并后的忙碌时间线（会议展平为不相交区间）。
 
 /// <summary>合并后的忙碌时间线（会议展平为不相交区间）。</summary>

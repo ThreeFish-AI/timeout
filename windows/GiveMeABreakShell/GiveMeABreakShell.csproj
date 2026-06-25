@@ -1,6 +1,6 @@
 <Project Sdk="Microsoft.NET.Sdk">
 
-  <!-- Timeout · Phase 1 · WPF 主程序壳（net8.0-windows，CI-only 验证）。
+  <!-- Give me a break · Phase 1 · WPF 主程序壳（net8.0-windows，CI-only 验证）。
        含 NAudio WASAPI 播放 + H.NotifyIcon 托盘 + WPF 装配。macOS 无法 build（NETSDK1100）。
        验证靠 CI：dotnet-build-shell（编译）+ dotnet-smoke-shell（headless 烟测）。 -->
   <PropertyGroup>
@@ -10,16 +10,16 @@
     <ImplicitUsings>enable</ImplicitUsings>
     <Nullable>enable</Nullable>
     <LangVersion>latest</LangVersion>
-    <RootNamespace>TimeoutShell</RootNamespace>
-    <AssemblyName>TimeoutShell</AssemblyName>
+    <RootNamespace>GiveMeABreakShell</RootNamespace>
+    <AssemblyName>GiveMeABreakShell</AssemblyName>
     <ApplicationManifest>app.manifest</ApplicationManifest>
     <!-- 作为用户进程运行（无管理员提权需求；开机自启走 HKCU 非提权） -->
   </PropertyGroup>
 
   <ItemGroup>
-    <ProjectReference Include="..\TimeoutEngine\TimeoutEngine.csproj" />
-    <ProjectReference Include="..\TimeoutEngine.Win32\TimeoutEngine.Win32.csproj" />
-    <ProjectReference Include="..\TimeoutEngine.Graph\TimeoutEngine.Graph.csproj" />
+    <ProjectReference Include="..\GiveMeABreakEngine\GiveMeABreakEngine.csproj" />
+    <ProjectReference Include="..\GiveMeABreakEngine.Win32\GiveMeABreakEngine.Win32.csproj" />
+    <ProjectReference Include="..\GiveMeABreakEngine.Graph\GiveMeABreakEngine.Graph.csproj" />
   </ItemGroup>
 
   <ItemGroup>

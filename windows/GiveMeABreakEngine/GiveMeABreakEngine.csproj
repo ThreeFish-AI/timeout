@@ -1,14 +1,14 @@
 <Project Sdk="Microsoft.NET.Sdk">
 
-  <!-- Timeout · Windows 移植 Phase 0 · 纯核心 C# 重写（镜像 Sources/TimeoutEngine/）。
+  <!-- Give me a break · Windows 移植 Phase 0 · 纯核心 C# 重写（镜像 Sources/GiveMeABreakEngine/）。
        零第三方依赖；System.Text.Json 为内置。详见 docs/windows-port-design.md。 -->
   <PropertyGroup>
     <TargetFramework>net8.0</TargetFramework>
     <ImplicitUsings>enable</ImplicitUsings>
     <Nullable>enable</Nullable>
     <LangVersion>latest</LangVersion>
-    <RootNamespace>TimeoutEngine</RootNamespace>
-    <AssemblyName>TimeoutEngine</AssemblyName>
+    <RootNamespace>GiveMeABreakEngine</RootNamespace>
+    <AssemblyName>GiveMeABreakEngine</AssemblyName>
     <GenerateDocumentationFile>false</GenerateDocumentationFile>
     <!-- 可被 WPF 主程序（Phase 1+）与 xUnit 测试同时引用的纯逻辑核心。 -->
   </PropertyGroup>

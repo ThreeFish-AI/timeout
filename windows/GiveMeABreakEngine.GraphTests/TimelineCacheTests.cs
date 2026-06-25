@@ -1,8 +1,8 @@
 using Xunit;
-using TimeoutEngine;
-using TimeoutEngine.Graph;
+using GiveMeABreakEngine;
+using GiveMeABreakEngine.Graph;
 
-namespace TimeoutEngine.GraphTests;
+namespace GiveMeABreakEngine.GraphTests;
 
 // MARK: - TimelineCache 限流 + 线程安全（对齐 macOS minRefreshInterval/lazyRefreshInterval）
 

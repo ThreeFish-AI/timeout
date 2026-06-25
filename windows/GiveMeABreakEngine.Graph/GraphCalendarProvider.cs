@@ -1,6 +1,6 @@
-using TimeoutEngine;
+using GiveMeABreakEngine;
 
-namespace TimeoutEngine.Graph;
+namespace GiveMeABreakEngine.Graph;
 
 // MARK: - ICalendarProvider 实现：Graph 日历门控
 // 镜像 macOS LiveCalendarProvider：CurrentTimeline 同步返回缓存 + 惰性刷新到期 fire-and-forget 后台刷新 + 失败降级。

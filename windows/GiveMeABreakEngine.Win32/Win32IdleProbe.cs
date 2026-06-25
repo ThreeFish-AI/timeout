@@ -1,6 +1,6 @@
 using System.Runtime.InteropServices;
 
-namespace TimeoutEngine.Win32;
+namespace GiveMeABreakEngine.Win32;
 
 // MARK: - 空闲检测（64 位 tick 回绕处理）
 // 镜像文档 §4：GetLastInputInfo（32 位 tick）+ GetTickCount64（64 位，避 49.7 天回绕）。
@@ -19,7 +19,7 @@ public static class Win32IdleProbe
     }
 
     /// <summary>获取当前空闲秒数（封装 native 调用）。
-    /// public 以便壳工程（TimeoutShell）跨工程访问，规避 NativeMethods 的 internal 限制。</summary>
+    /// public 以便壳工程（GiveMeABreakShell）跨工程访问，规避 NativeMethods 的 internal 限制。</summary>
     public static double GetCurrentIdleSeconds()
     {
         var info = new LASTINPUTINFO { cbSize = (uint)Marshal.SizeOf<LASTINPUTINFO>() };

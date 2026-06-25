@@ -1,4 +1,4 @@
-namespace TimeoutEngine.Graph;
+namespace GiveMeABreakEngine.Graph;
 
 // MARK: - Graph 客户端抽象（mockable，隔离 MSAL/HttpClient 不可测部分）
 // 同 Phase 1 ISendInputPort 隔离 SendInput 范式：壳 MsalGraphClient 实现真实调用，测试用 mock。

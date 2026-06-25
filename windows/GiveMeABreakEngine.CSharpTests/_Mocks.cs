@@ -1,9 +1,9 @@
-using TimeoutEngine;
+using GiveMeABreakEngine;
 
-namespace TimeoutEngine.Tests;
+namespace GiveMeABreakEngine.Tests;
 
 // MARK: - Mocks（镜像 tests/EngineWiringCases.swift · Mocks）
-// 仅用于注入 LiveTimeoutEngine，记录控制器调用序列，断言副作用分发。
+// 仅用于注入 LiveGiveMeABreakEngine，记录控制器调用序列，断言副作用分发。
 
 internal sealed class MockClock : IClock
 {
@@ -65,7 +65,7 @@ internal static class TestHelpers
 
     /// <summary>以 step（默认 60s）粒度驱动引擎 tick。step ≤ maxDelta(60) 保证不触发限幅损失。
     /// 镜像 tests/EngineWiringCases.swift · runTicks。</summary>
-    public static void RunTicks(LiveTimeoutEngine engine, MockClock clock, double seconds, double step = 60)
+    public static void RunTicks(LiveGiveMeABreakEngine engine, MockClock clock, double seconds, double step = 60)
     {
         double elapsed = 0;
         while (elapsed < seconds)

@@ -1,9 +1,9 @@
 using System.Text.Json;
 
-namespace TimeoutEngine;
+namespace GiveMeABreakEngine;
 
 // MARK: - 配置与引擎状态 JSON 持久化
-// 镜像 Sources/TimeoutEngine/ConfigStore.swift。原子写 + schema 迁移；读取失败回退默认/nil，绝不抛出。
+// 镜像 Sources/GiveMeABreakEngine/ConfigStore.swift。原子写 + schema 迁移；读取失败回退默认/nil，绝不抛出。
 
 public sealed class ConfigStore
 {
@@ -28,7 +28,7 @@ public sealed class ConfigStore
         try
         {
             var json = File.ReadAllText(ConfigPath);
-            return Migrate(DayPlanConfig.FromJson(json, TimeoutJsonOptions.Default));
+            return Migrate(DayPlanConfig.FromJson(json, GiveMeABreakJsonOptions.Default));
         }
         catch
         {
@@ -37,14 +37,14 @@ public sealed class ConfigStore
     }
 
     public void SaveConfig(DayPlanConfig config)
-        => WriteAtomic(ConfigPath, JsonSerializer.Serialize(config, TimeoutJsonOptions.Default));
+        => WriteAtomic(ConfigPath, JsonSerializer.Serialize(config, GiveMeABreakJsonOptions.Default));
 
     public EngineState? LoadState()
     {
         if (!File.Exists(StatePath)) return null;
         try
         {
-            return JsonSerializer.Deserialize<EngineState>(File.ReadAllText(StatePath), TimeoutJsonOptions.Default);
+            return JsonSerializer.Deserialize<EngineState>(File.ReadAllText(StatePath), GiveMeABreakJsonOptions.Default);
         }
         catch
         {
@@ -54,7 +54,7 @@ public sealed class ConfigStore
 
     public void SaveState(EngineState state)
     {
-        try { WriteAtomic(StatePath, JsonSerializer.Serialize(state, TimeoutJsonOptions.Default)); }
+        try { WriteAtomic(StatePath, JsonSerializer.Serialize(state, GiveMeABreakJsonOptions.Default)); }
         catch { /* 静默：镜像 Swift NSLog 但不抛出到调用方 */ }
     }
 
@@ -78,7 +78,7 @@ public sealed class ConfigStore
 }
 
 /// <summary>共享 JSON 选项：camelCase（对齐 Swift Codable 默认形态）+ 缩进。</summary>
-public static class TimeoutJsonOptions
+public static class GiveMeABreakJsonOptions
 {
     public static readonly JsonSerializerOptions Default = new()
     {

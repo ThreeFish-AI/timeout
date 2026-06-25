@@ -1,7 +1,7 @@
 using System.Text.Json;
 using System.Text.Json.Serialization;
 
-namespace TimeoutEngine;
+namespace GiveMeABreakEngine;
 
 // MARK: - JSON 转换器（对齐 Swift Codable 形态）
 // 跨端序列化兼容的集中维护点。EnginePhase 的 camelCase 由其自身 attribute 处理。

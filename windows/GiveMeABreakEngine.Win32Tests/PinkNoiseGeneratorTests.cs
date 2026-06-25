@@ -1,10 +1,10 @@
 using Xunit;
-using TimeoutEngine.Win32;
+using GiveMeABreakEngine.Win32;
 
-namespace TimeoutEngine.Win32Tests;
+namespace GiveMeABreakEngine.Win32Tests;
 
 // MARK: - 粉噪音保真度（CI 无音频输出，断言可量化指标；听感靠用户真机验收）
-// 镜像 Sources/TimeoutIntegrations/AmbientSoundPlayer.swift 的 Kellet 算法预期。
+// 镜像 Sources/GiveMeABreakIntegrations/AmbientSoundPlayer.swift 的 Kellet 算法预期。
 
 public class PinkNoiseGeneratorTests
 {

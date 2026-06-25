@@ -1,7 +1,7 @@
 using Xunit;
-using TimeoutEngine.Win32;
+using GiveMeABreakEngine.Win32;
 
-namespace TimeoutEngine.Win32Tests;
+namespace GiveMeABreakEngine.Win32Tests;
 
 // MARK: - 空闲检测 64 位 tick 回绕（文档 §4 强调的坑：须避 49.7 天回绕）
 

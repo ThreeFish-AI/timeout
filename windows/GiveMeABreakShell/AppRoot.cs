@@ -1,14 +1,14 @@
 using System.Windows.Threading;
-using TimeoutEngine;
-using TimeoutEngine.Win32;
-using TimeoutShell.Adapters;
-using TimeoutShell.Power;
-using TimeoutShell.Tray;
-using TimeoutEngine.Graph;
+using GiveMeABreakEngine;
+using GiveMeABreakEngine.Win32;
+using GiveMeABreakShell.Adapters;
+using GiveMeABreakShell.Power;
+using GiveMeABreakShell.Tray;
+using GiveMeABreakEngine.Graph;
 
-namespace TimeoutShell;
+namespace GiveMeABreakShell;
 
-// 装配点 · 镜像 Swift AppRoot.swift。汇聚 6 个 interface 实现 → 注入 LiveTimeoutEngine →
+// 装配点 · 镜像 Swift AppRoot.swift。汇聚 6 个 interface 实现 → 注入 LiveGiveMeABreakEngine →
 // 崩溃恢复 → 持久化 handler → 电源事件 → 心跳 1Hz tick → 托盘（非 headless）。
 public sealed class AppRoot : IDisposable
 {
@@ -20,16 +20,16 @@ public sealed class AppRoot : IDisposable
     private readonly WasapiAmbientPlayer _ambient;
     private readonly MusicController _music;
     private readonly HeartbeatTimer _heartbeat;
-    private LiveTimeoutEngine _engine = null!;
+    private LiveGiveMeABreakEngine _engine = null!;
     private PowerEventBridge? _power;
     private TrayController? _tray;
 
     public AppRoot(Dispatcher dispatcher)
     {
-        string dir = ConfigStore.DefaultDirectory("com.aurelius.timeout");
+        string dir = ConfigStore.DefaultDirectory("com.aurelius.givemeabreak");
         _store = new ConfigStore(dir);
         _config = _store.LoadConfig();
-        if (Environment.GetEnvironmentVariable("TIMEOUT_DEBUG") == "1") ApplyDebugConfig();
+        if (Environment.GetEnvironmentVariable("GIVEMEABREAK_DEBUG") == "1") ApplyDebugConfig();
 
         _calendar = BuildCalendarProvider(_config);
         _ambient = new WasapiAmbientPlayer(new PinkNoiseGenerator());
@@ -40,11 +40,11 @@ public sealed class AppRoot : IDisposable
         _heartbeat = new HeartbeatTimer(dispatcher);
     }
 
-    public LiveTimeoutEngine Engine => _engine;
+    public LiveGiveMeABreakEngine Engine => _engine;
 
     public void Start(bool headless)
     {
-        _engine = new LiveTimeoutEngine(
+        _engine = new LiveGiveMeABreakEngine(
             clock: new SystemClock(),
             calendarProvider: _calendar,
             overlay: _overlay,
@@ -60,13 +60,13 @@ public sealed class AppRoot : IDisposable
         _power.Start();
 
         if (!headless)
-            _tray = new TrayController(_engine, () => Console.WriteLine("[Timeout][settings] (Phase 1 占位)"));
+            _tray = new TrayController(_engine, () => Console.WriteLine("[GiveMeABreak][settings] (Phase 1 占位)"));
 
         _heartbeat.Start(1.0, () => _engine.Tick());
-        Console.WriteLine($"[Timeout][root] ASSEMBLY_OK 装配完成 headless={headless} interval={_config.WorkIntervalSeconds}s rest={_config.RestDurationSeconds}s");
+        Console.WriteLine($"[GiveMeABreak][root] ASSEMBLY_OK 装配完成 headless={headless} interval={_config.WorkIntervalSeconds}s rest={_config.RestDurationSeconds}s");
     }
 
-    /// <summary>TIMEOUT_DEBUG 极速配置：使 CI 烟测在 5s 内见证 working→resting→working 相位转移。</summary>
+    /// <summary>GIVEMEABREAK_DEBUG 极速配置：使 CI 烟测在 5s 内见证 working→resting→working 相位转移。</summary>
     private void ApplyDebugConfig()
     {
         _config = new DayPlanConfig
@@ -78,7 +78,7 @@ public sealed class AppRoot : IDisposable
             AmbientSoundEnabled = false,    // headless 无音频设备，避免 WASAPI 异常
             ControlQQMusic = false,
         };
-        Console.WriteLine("[Timeout][debug] TIMEOUT_DEBUG 极速配置（2s 工作 / 1s 休息）");
+        Console.WriteLine("[GiveMeABreak][debug] GIVEMEABREAK_DEBUG 极速配置（2s 工作 / 1s 休息）");
     }
 
     /// <summary>按 graphClientId 条件注入日历门控；空/失败 → EmptyCalendarProvider 降级（headless 不崩）。</summary>
@@ -94,7 +94,7 @@ public sealed class AppRoot : IDisposable
         {
             var client = new MsalGraphClient(clientId);
             if (!client.IsConfigured) return new EmptyCalendarProvider();
-            Console.WriteLine($"[Timeout][calendar] Graph 日历门控已装配（client id 末 4 位：…{clientId[^4..]}）");
+            Console.WriteLine($"[GiveMeABreak][calendar] Graph 日历门控已装配（client id 末 4 位：…{clientId[^4..]}）");
             return new GraphCalendarProvider(client, new SystemClock());
         }
         catch (Exception ex)

@@ -1,7 +1,7 @@
 using System.ComponentModel;
 using System.Runtime.CompilerServices;
 
-namespace TimeoutShell.Overlay;
+namespace GiveMeABreakShell.Overlay;
 
 // 遮罩共享状态（镜像 Swift OverlayViewModel）。INPC 驱动 WPF 倒计时/确认双态切换。
 public sealed class OverlayViewModel : INotifyPropertyChanged

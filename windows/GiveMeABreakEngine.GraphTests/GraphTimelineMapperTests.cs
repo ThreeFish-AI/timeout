@@ -1,9 +1,9 @@
 using System.Text.Json;
 using Xunit;
-using TimeoutEngine;
-using TimeoutEngine.Graph;
+using GiveMeABreakEngine;
+using GiveMeABreakEngine.Graph;
 
-namespace TimeoutEngine.GraphTests;
+namespace GiveMeABreakEngine.GraphTests;
 
 // MARK: - GraphTimelineMapper 解析（fixture 驱动，对齐 macOS refresh 的 filter/map/merge）
 

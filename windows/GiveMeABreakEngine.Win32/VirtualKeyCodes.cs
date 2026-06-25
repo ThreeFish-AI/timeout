@@ -1,4 +1,4 @@
-namespace TimeoutEngine.Win32;
+namespace GiveMeABreakEngine.Win32;
 
 // MARK: - 虚拟键码常量（Winuser.h）
 // VK_MEDIA_* 系列用于 SendInput 合成媒体键（对齐 macOS CGEvent NX_KEYTYPE）。

@@ -1,7 +1,7 @@
-namespace TimeoutEngine;
+namespace GiveMeABreakEngine;
 
 // MARK: - 集成契约（接口）
-// 镜像 Sources/TimeoutEngine/Protocols.swift。Phase 0 仅定义接口（签名无平台依赖）；
+// 镜像 Sources/GiveMeABreakEngine/Protocols.swift。Phase 0 仅定义接口（签名无平台依赖）；
 // Win32 实现（托盘/遮罩/音频/日历/系统状态/心跳）为 Phase 1+ 范围。
 
 // MARK: - 时钟抽象（注入虚拟时钟即可单元测试，零真实时间依赖）

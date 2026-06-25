@@ -48,7 +48,7 @@ final class StatusItemController {
 
         menu.addItem(.separator())
 
-        let quit = NSMenuItem(title: "退出 Give me a break", action: #selector(NSApplication.terminate(_:)), keyEquivalent: "q")
+        let quit = NSMenuItem(title: "退出", action: #selector(NSApplication.terminate(_:)), keyEquivalent: "q")
         quit.target = NSApp
         quit.image = Self.menuSymbol("xmark.circle", description: "退出")
         menu.addItem(quit)

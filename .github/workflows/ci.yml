@@ -47,7 +47,7 @@ permissions:
 jobs:
   test:
     name: Test (GiveMeABreakTests runner)
-    runs-on: macos-14
+    runs-on: macos-15
     steps:
       - name: Checkout
         uses: actions/checkout@9c091bb21b7c1c1d1991bb908d89e4e9dddfe3e0 # v7.0.0
@@ -71,7 +71,7 @@ jobs:
 
   build:
     name: Build (release compile check)
-    runs-on: macos-14
+    runs-on: macos-15
     # 串行而非并行（省 macOS 额度）：test job 的 swift run 已隐含编译 Engine+Tests；
     # build job 验证 release 全量编译（含 GiveMeABreakIntegrations/GiveMeABreak），缓存全热下秒级完成。
     # 若需 fail-fast（编译错误立即暴露），可删除本行改并行。
@@ -122,7 +122,7 @@ jobs:
   # 与 dotnet-test(windows) 跑同一批 net8.0 测试，双端一致 = 跨平台成立。本地可复现（无 Windows 也能验证）。
   dotnet-test-mac:
     name: Test (C# net8.0 · macOS 跨平台)
-    runs-on: macos-14
+    runs-on: macos-15
     steps:
       - name: Checkout
         uses: actions/checkout@9c091bb21b7c1c1d1991bb908d89e4e9dddfe3e0 # v7.0.0

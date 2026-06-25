@@ -1,0 +1,19 @@
+<Project Sdk="Microsoft.NET.Sdk">
+
+  <!-- Give me a break · Phase 3 · Microsoft Graph 日历门控解析层（net8.0，零 NuGet）。
+       解析 + 缓存 + Provider 编排纯逻辑，MSAL/HttpClient 经 IGraphClient 隔离到壳（不可测）。
+       最大化 net8.0 可测面积（同 Phase 1 Win32 范式）。 -->
+  <PropertyGroup>
+    <TargetFramework>net8.0</TargetFramework>
+    <ImplicitUsings>enable</ImplicitUsings>
+    <Nullable>enable</Nullable>
+    <LangVersion>latest</LangVersion>
+    <RootNamespace>GiveMeABreakEngine.Graph</RootNamespace>
+    <AssemblyName>GiveMeABreakEngine.Graph</AssemblyName>
+  </PropertyGroup>
+
+  <ItemGroup>
+    <ProjectReference Include="..\GiveMeABreakEngine\GiveMeABreakEngine.csproj" />
+  </ItemGroup>
+
+</Project>

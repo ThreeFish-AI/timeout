@@ -10,7 +10,7 @@
 
 - **表因**：`import XCTest` 报 `no such module 'XCTest'`；`import Testing`（Swift Testing）报宏插件 `TestingMacros` not found。
 - **根因**：Command Line Tools（非完整 Xcode）不含 XCTest 框架与 Swift Testing 宏插件，二者均随 Xcode 附带。
-- **处理方式**：自建极简测试运行器——`tests/` 下可执行目标 `TimeoutTests`，提供 `test(name){}` / `expect(...)` / `expectEqual(...)` + 计数 + 退出码，`make test` → `swift run TimeoutTests` 驱动。语义对齐 XCTest，30 用例 <1s。
+- **处理方式**：自建极简测试运行器——`tests/` 下可执行目标 `GiveMeABreakTests`，提供 `test(name){}` / `expect(...)` / `expectEqual(...)` + 计数 + 退出码，`make test` → `swift run GiveMeABreakTests` 驱动。语义对齐 XCTest，30 用例 <1s。
 - **后续防范**：若未来安装完整 Xcode，可平滑迁移回 XCTest（断言 API 一一对应）；AGENTS.md 已注明此适配。
 - **同类影响**：任何纯 CLT 环境的 Swift 项目均适用此方案，勿再尝试 `swift test` + XCTest。
 
@@ -30,7 +30,7 @@
   - **内置粉噪音降级（核心修复）**：新增 `AmbientSoundPlayer`（AVAudioEngine + AVAudioPlayerNode 循环预生成粉噪音 buffer，Paul Kellet 算法，零音频文件、零第三方依赖、CLT 兼容），作为可靠休息音效——**无论 QQ 音乐是否可用都会响**。macOS 无 `AVAudioSession`（iOS 专有，实测 `sharedInstance()` 标记 unavailable），故仅 `engine.start()`，CoreAudio 默认与其他音频混合。
   - `DayPlanConfig` 新增 `ambientSoundEnabled`(默认 true) / `controlQQMusic`(默认 true) 两开关 + `schemaVersion` 1→2；自定义 `init(from:)` 容错解码（旧配置缺字段补默认，**不丢失**原有工作窗口/节律）+ `ConfigStore.migrate` 规范化版本号。
   - `MusicController` 协议加 `updateConfig(_:)`，引擎在 init 与 `updateConfig` 时同步配置给播放器（正交：降级逻辑收敛在 `LiveMusicController` 内，`SideEffects`/`Engine` 纯函数不变）。
-  - **诊断日志**：`startPlayback()` NSLog QQ 音乐 `installed/trusted/running` 三态，让「为何不响」可观测（Console.app `[Timeout][music]`）。
+  - **诊断日志**：`startPlayback()` NSLog QQ 音乐 `installed/trusted/running` 三态，让「为何不响」可观测（Console.app `[GiveMeABreak][music]`）。
   - 保留 QQ 音乐媒体键路径为可选增强（用户装了就用，没装粉噪音兜底）。
 - **后续防范**：实机回归先授 Accessibility + 装 QQ 音乐，确认 Now Playing 激活后再测联动；粉噪音默认开保证基础体验。**任何依赖不可控外部条件的能力，必须配可靠降级 + 可观测日志 + 用户可感知反馈，禁止静默失败。**
 - **同类影响**：任何控制第三方媒体播放器 / 依赖系统路由的方案；任何「外部依赖无降级」的静默失败模式。
@@ -57,7 +57,7 @@
 - **表因**：(a) 休息遮罩下按 Esc，确认对话框不可见，Esc 退出永远无反应；(b)（经菜单「立即休息」进入休息后）即便能触发「直接退出」，遮罩消失后约 1 秒重新出现并重置 10 分钟倒计时，永远无法退出。
 - **根因**：
   - (a) `LiveOverlayController` 遮罩面板 `level=CGShieldingWindowLevel()`（≈2147483628，窗口层级最高）；确认用 `NSAlert.runModal()`，其模态窗默认 `level=NSModalPanelWindowLevel`（=8）≪ 遮罩，对话框渲染在遮罩之下不可见；且 `runModal` 阻塞主线程但按钮不可达。`OverlayPanel.canBecomeMain=false` 进一步使 NSAlert 模态 session 不稳。
-  - (b) `LiveTimeoutEngine.requestEarlyRestExit()` 设 `phase=.working` 但**未清除 `forcedRest`**；该标志唯一清除点是 `tick()` 内（`oldPhase==.resting && s.phase!=.resting`），而 `requestEarlyRestExit` 绕过了 tick 路径。下个 tick 的 `transition` 纯函数见非休息态且 `forcedRest==true`，无视一切重进 `.resting` 并设新 `restStartedAt=now`（新倒计时）→ 死循环。仅「立即休息」入口触发（自然触发的休息 `forcedRest=false`，Esc 退出正常）。
+  - (b) `LiveGiveMeABreakEngine.requestEarlyRestExit()` 设 `phase=.working` 但**未清除 `forcedRest`**；该标志唯一清除点是 `tick()` 内（`oldPhase==.resting && s.phase!=.resting`），而 `requestEarlyRestExit` 绕过了 tick 路径。下个 tick 的 `transition` 纯函数见非休息态且 `forcedRest==true`，无视一切重进 `.resting` 并设新 `restStartedAt=now`（新倒计时）→ 死循环。仅「立即休息」入口触发（自然触发的休息 `forcedRest=false`，Esc 退出正常）。
 - **处理方式**：
   - (a) 弃用 NSAlert，确认 UI 改为**内嵌遮罩 SwiftUI 视图**（新增 `OverlayViewModel: ObservableObject`，`@Published isConfirming` 驱动倒计时态/确认态切换），与遮罩同层级，从根上消除遮挡；非阻塞、不依赖 main window、多屏一致；Esc 双语义（倒计时态→进入确认，确认态→取消返回倒计时）；主屏 panel `makeKeyAndOrderFront` 使 Button 可接收点击/回车。
   - (b) `requestEarlyRestExit()` 加 `forcedRest = false`，与 tick 共享「离开 .resting 即清 forcedRest」不变量。配回归测试（`forceRestNow`→`requestEarlyRestExit`→再 tick，断言 `overlay.showCount` 修复前=2/后=1，phase 保持 working）。
@@ -69,7 +69,7 @@
 
 ## #7 accessory app 设置窗离屏 + 初始尺寸不足（NSWindow.center / NSHostingController fittingSize）
 
-- **表因**：命令行 `TIMEOUT_SHOW_SETTINGS=1` 启动后设置窗不可见；全屏 `screencapture` 截不到，险些误判为"未创建"。
+- **表因**：命令行 `GIVEMEABREAK_SHOW_SETTINGS=1` 启动后设置窗不可见；全屏 `screencapture` 截不到，险些误判为"未创建"。
 - **根因**：
   - (a) `NSWindow.center()` 在 accessory app（`LSUIElement=true`，启动时无 key window）+ 多屏/非标准坐标配置下，把窗口定位到**离屏负坐标**（CGWindowList 实测 `X=-1281`）。center() 假定窗口已关联 screen，accessory 启动早期不成立。
   - (b) `NSHostingController` 默认用 **fittingSize**（≈ SwiftUI frame 的 min），`idealWidth/idealHeight` **不生效**，窗口初始落回 `minWidth×minHeight`（实测 480×492），四 Section 显示不全、需滚动才见「休息音效」。

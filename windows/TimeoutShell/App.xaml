@@ -1,8 +1,0 @@
-<Application x:Class="TimeoutShell.App"
-             xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
-             xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
-             ShutdownMode="OnExplicitShutdown">
-    <!-- 托盘常驻 app：关窗口不退出，仅显式 Shutdown()（退出菜单）。
-         Phase 1 无主窗口（仅托盘 + 后续 Phase 2 遮罩窗口）。 -->
-    <Application.Resources />
-</Application>

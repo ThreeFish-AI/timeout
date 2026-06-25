@@ -1,0 +1,36 @@
+<Project Sdk="Microsoft.NET.Sdk">
+
+  <!-- Give me a break · Phase 1 · WPF 主程序壳（net8.0-windows，CI-only 验证）。
+       含 NAudio WASAPI 播放 + H.NotifyIcon 托盘 + WPF 装配。macOS 无法 build（NETSDK1100）。
+       验证靠 CI：dotnet-build-shell（编译）+ dotnet-smoke-shell（headless 烟测）。 -->
+  <PropertyGroup>
+    <OutputType>WinExe</OutputType>
+    <TargetFramework>net8.0-windows</TargetFramework>
+    <UseWPF>true</UseWPF>
+    <ImplicitUsings>enable</ImplicitUsings>
+    <Nullable>enable</Nullable>
+    <LangVersion>latest</LangVersion>
+    <RootNamespace>GiveMeABreakShell</RootNamespace>
+    <AssemblyName>GiveMeABreakShell</AssemblyName>
+    <ApplicationManifest>app.manifest</ApplicationManifest>
+    <!-- 作为用户进程运行（无管理员提权需求；开机自启走 HKCU 非提权） -->
+  </PropertyGroup>
+
+  <ItemGroup>
+    <ProjectReference Include="..\GiveMeABreakEngine\GiveMeABreakEngine.csproj" />
+    <ProjectReference Include="..\GiveMeABreakEngine.Win32\GiveMeABreakEngine.Win32.csproj" />
+    <ProjectReference Include="..\GiveMeABreakEngine.Graph\GiveMeABreakEngine.Graph.csproj" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <!-- NAudio 2.2.1（壳专属，不污染 net8.0 工程）：WASAPI 粉噪音播放 -->
+    <PackageReference Include="NAudio" Version="2.2.1" />
+    <!-- H.NotifyIcon.Wpf 2.2.0（壳专属）：WPF 友好托盘，样板少 -->
+    <PackageReference Include="H.NotifyIcon.Wpf" Version="2.2.0" />
+    <!-- System.Drawing.Common 9.0.0（壳专属）：托盘 Icon；>=9.0.0 满足 H.NotifyIcon 2.2.0 的传递依赖（避 NU1605 降级） -->
+    <PackageReference Include="System.Drawing.Common" Version="9.0.0" />
+    <!-- Microsoft.Identity.Client 4.66.0（壳专属）：MSAL 设备码 flow Graph 认证（Phase 3；不污染 net8.0 工程） -->
+    <PackageReference Include="Microsoft.Identity.Client" Version="4.66.0" />
+  </ItemGroup>
+
+</Project>

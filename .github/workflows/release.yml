@@ -1,4 +1,4 @@
-# Timeout — 发布 CD（持续交付）· 多平台（macOS + Windows）。
+# Give me a break — 发布 CD（持续交付）· 多平台（macOS + Windows）。
 # 触发：git tag v*（版本即 tag，不可变锚点）+ workflow_dispatch（手动补刀 / prerelease）。
 # 架构（docs/windows-port-design.md §7）：单 workflow + 3 job 规避多 workflow 同 tag 竞态——
 #   macos job（①-⑥ 现有链路逐字保留，演进式签名）+ windows job（dotnet publish self-contained，无签名）
@@ -61,7 +61,7 @@ jobs:
           echo "RELEASE_VERSION=${PLIST_V}" >> "$GITHUB_ENV"
 
       # ② 构建+装配（复用 make app 单一事实源；产物 ad-hoc 签名，结构可启动）。
-      - name: Build & assemble Timeout.app
+      - name: Build & assemble GiveMeABreak.app
         run: make app
 
       # ③a 检测签名/公证 secrets 是否存在。
@@ -95,8 +95,8 @@ jobs:
           echo "==> 可用签名 identity（排障）："
           security find-identity -v -p codesigning "$KC"
           codesign --force --deep --options runtime --timestamp \
-            --entitlements Resources/TimeoutRelease.entitlements \
-            --keychain "$KC" -s "$SIGNING_IDENTITY" Timeout.app
+            --entitlements Resources/GiveMeABreakRelease.entitlements \
+            --keychain "$KC" -s "$SIGNING_IDENTITY" GiveMeABreak.app
           rm -f "$CERT_FILE"
           security delete-keychain "$KC"
 
@@ -111,14 +111,14 @@ jobs:
           set -euo pipefail
           cd "$RUNNER_TEMP"
           # ditto 保留 bundle 符号链接/权限；zip 会破坏符号链接致签名失效。
-          ditto -c -k --keepParent "$GITHUB_WORKSPACE/Timeout.app" "Timeout-${RELEASE_VERSION}-macos.zip"
-          xcrun notarytool submit "Timeout-${RELEASE_VERSION}-macos.zip" \
+          ditto -c -k --keepParent "$GITHUB_WORKSPACE/GiveMeABreak.app" "give-me-a-break-${RELEASE_VERSION}-macos.zip"
+          xcrun notarytool submit "give-me-a-break-${RELEASE_VERSION}-macos.zip" \
             --apple-id "$APPLE_ID" \
             --password "$APPLE_APP_SPECIFIC_PASSWORD" \
             --team-id "$APPLE_TEAM_ID" \
             --wait --timeout 30m
           cd "$GITHUB_WORKSPACE"
-          xcrun stapler staple Timeout.app
+          xcrun stapler staple GiveMeABreak.app
           echo "NOTARIZED=true" >> "$GITHUB_ENV"
 
       # ⑤ 打包发布物（复用公证 zip 或现打）。
@@ -126,21 +126,21 @@ jobs:
         run: |
           set -euo pipefail
           cd "$RUNNER_TEMP"
-          if [ ! -f "Timeout-${RELEASE_VERSION}-macos.zip" ]; then
-            ditto -c -k --keepParent "$GITHUB_WORKSPACE/Timeout.app" "Timeout-${RELEASE_VERSION}-macos.zip"
+          if [ ! -f "give-me-a-break-${RELEASE_VERSION}-macos.zip" ]; then
+            ditto -c -k --keepParent "$GITHUB_WORKSPACE/GiveMeABreak.app" "give-me-a-break-${RELEASE_VERSION}-macos.zip"
           fi
-          echo "RELEASE_ZIP=$RUNNER_TEMP/Timeout-${RELEASE_VERSION}-macos.zip" >> "$GITHUB_ENV"
+          echo "RELEASE_ZIP=$RUNNER_TEMP/give-me-a-break-${RELEASE_VERSION}-macos.zip" >> "$GITHUB_ENV"
 
       # ⑥ Verification Before Done —— 发布前自证三件套（AGENTS.md「交付前验证定式」）。
       - name: Verify codesign integrity（always，ad-hoc 也校验结构完整性）
-        run: codesign --verify --deep --strict --verbose=2 Timeout.app
+        run: codesign --verify --deep --strict --verbose=2 GiveMeABreak.app
 
       - name: Verify Gatekeeper & staple（only when notarized）
         if: env.NOTARIZED == 'true'
         run: |
           set -euo pipefail
-          spctl -a -vvvv -t install Timeout.app
-          xcrun stapler validate Timeout.app
+          spctl -a -vvvv -t install GiveMeABreak.app
+          xcrun stapler validate GiveMeABreak.app
 
       # ⑦ 上传 artifact（Release 创建上移到 release 收敛 job）+ 版本/公证 markers（供 release job 跨 job 读取）。
       - name: Write version & notarized markers
@@ -194,17 +194,17 @@ jobs:
 
       # publish self-contained（含 .NET 8 + WindowsDesktop runtime，免用户装 .NET；对齐 ci.yml 范式）。
       - name: Publish self-contained (win-x64)
-        run: dotnet publish windows/TimeoutShell/TimeoutShell.csproj -c Release -r win-x64 --self-contained -p:Version=${{ env.RELEASE_VERSION }} -o ./publish --nologo
+        run: dotnet publish windows/GiveMeABreakShell/GiveMeABreakShell.csproj -c Release -r win-x64 --self-contained -p:Version=${{ env.RELEASE_VERSION }} -o ./publish --nologo
 
       - name: Package win64 zip
         shell: pwsh
-        run: Compress-Archive -Path ./publish/* -DestinationPath "Timeout-${{ env.RELEASE_VERSION }}-win64.zip" -Force
+        run: Compress-Archive -Path ./publish/* -DestinationPath "give-me-a-break-${{ env.RELEASE_VERSION }}-win64.zip" -Force
 
       - name: Upload Windows zip artifact
         uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
         with:
           name: windows-zip
-          path: Timeout-${{ env.RELEASE_VERSION }}-win64.zip
+          path: give-me-a-break-${{ env.RELEASE_VERSION }}-win64.zip
           if-no-files-found: error
 
   # ────────────────────────────────────────────────────────────────────────
@@ -243,29 +243,29 @@ jobs:
           set -euo pipefail
           mv macos-zip/*.zip . 2>/dev/null || true
           mv windows-zip/*.zip . 2>/dev/null || true
-          ls -la Timeout-*.zip
-          test -f "Timeout-${RELEASE_VERSION}-macos.zip"
-          test -f "Timeout-${RELEASE_VERSION}-win64.zip"
+          ls -la give-me-a-break-*.zip
+          test -f "give-me-a-break-${RELEASE_VERSION}-macos.zip"
+          test -f "give-me-a-break-${RELEASE_VERSION}-win64.zip"
 
       - name: Create GitHub Release
         uses: softprops/action-gh-release@718ea10b132b3b2eba29c1007bb80653f286566b # v3.0.1
         with:
           tag_name: v${{ env.RELEASE_VERSION }}
-          name: Timeout ${{ env.RELEASE_VERSION }}
+          name: Give me a break ${{ env.RELEASE_VERSION }}
           files: |
-            Timeout-${{ env.RELEASE_VERSION }}-macos.zip
-            Timeout-${{ env.RELEASE_VERSION }}-win64.zip
+            give-me-a-break-${{ env.RELEASE_VERSION }}-macos.zip
+            give-me-a-break-${{ env.RELEASE_VERSION }}-win64.zip
           fail_on_unmatched_files: true
           prerelease: ${{ github.event.inputs.prerelease == 'true' }}
           body: |
-            ## Timeout ${{ env.RELEASE_VERSION }}
+            ## Give me a break ${{ env.RELEASE_VERSION }}
 
             ### macOS
-            下载 `Timeout-${{ env.RELEASE_VERSION }}-macos.zip`。解压后将 `Timeout.app` 拖入 `/Applications`；首次启动需在「系统设置 → 隐私与安全性」授权辅助功能与媒体控制权限。
+            下载 `give-me-a-break-${{ env.RELEASE_VERSION }}-macos.zip`。解压后将 `GiveMeABreak.app` 拖入 `/Applications`；首次启动需在「系统设置 → 隐私与安全性」授权辅助功能与媒体控制权限。
 
-            ${{ env.NOTARIZED == 'true' && '> ✅ 已通过 Apple 公证（Notarized）+ Developer ID 签名，Gatekeeper 可直接放行。' || '> ⚠️ 此版本为 ad-hoc 签名（未签名/未公证）。首次打开会被 Gatekeeper 拦截，请执行 `xattr -dr com.apple.quarantine /Applications/Timeout.app` 放行（macOS 15.1 Sequoia 起「右键→打开」已失效），仅供内测。' }}
+            ${{ env.NOTARIZED == 'true' && '> ✅ 已通过 Apple 公证（Notarized）+ Developer ID 签名，Gatekeeper 可直接放行。' || '> ⚠️ 此版本为 ad-hoc 签名（未签名/未公证）。首次打开会被 Gatekeeper 拦截，请执行 `xattr -dr com.apple.quarantine /Applications/GiveMeABreak.app` 放行（macOS 15.1 Sequoia 起「右键→打开」已失效），仅供内测。' }}
 
             ### Windows
-            下载 `Timeout-${{ env.RELEASE_VERSION }}-win64.zip`。解压后运行 `TimeoutShell.exe`。内置 .NET 8 运行时，**无需额外安装任何依赖**。
+            下载 `give-me-a-break-${{ env.RELEASE_VERSION }}-win64.zip`。解压后运行 `GiveMeABreakShell.exe`。内置 .NET 8 运行时，**无需额外安装任何依赖**。
 
-            > ⚠️ **此 Windows 版本未签名**。首次运行会被 SmartScreen 拦截，请点击「更多信息 → 仍要运行」。`TimeoutShell.exe` 可能被杀软（Defender / 360 / 火绒）误报（`WH_KEYBOARD_LL` 键盘钩子 + `SendInput` 媒体键触发），需手动加入信任。代码签名将在后续版本提供。
+            > ⚠️ **此 Windows 版本未签名**。首次运行会被 SmartScreen 拦截，请点击「更多信息 → 仍要运行」。`GiveMeABreakShell.exe` 可能被杀软（Defender / 360 / 火绒）误报（`WH_KEYBOARD_LL` 键盘钩子 + `SendInput` 媒体键触发），需手动加入信任。代码签名将在后续版本提供。

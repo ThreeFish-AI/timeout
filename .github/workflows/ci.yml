@@ -1,4 +1,4 @@
-# Timeout — CI 持续集成核心流水线（test + build）。
+# Give me a break — CI 持续集成核心流水线（test + build）。
 # 维度边界（正交分解）：本 workflow 只负责测试与编译验证。
 #   - 文档/链接/Mermaid 门禁由 .github/workflows/lint.yml 负责，互不耦合。
 #   - 发布（装配/签名/公证/Release）由 .github/workflows/release.yml 负责；本 workflow build job
@@ -46,7 +46,7 @@ permissions:
 
 jobs:
   test:
-    name: Test (TimeoutTests runner)
+    name: Test (GiveMeABreakTests runner)
     runs-on: macos-14
     steps:
       - name: Checkout
@@ -56,8 +56,8 @@ jobs:
         uses: ./.github/actions/setup-macos-swift
 
       - name: Run tests
-        # make test → swift run TimeoutTests；自建运行器，失败时 exit(1)（tests/main.swift 末行）。
-        # TimeoutTests 仅依赖纯 Foundation 的 TimeoutEngine，无系统权限、无 GUI，CI 安全可跑。
+        # make test → swift run GiveMeABreakTests；自建运行器，失败时 exit(1)（tests/main.swift 末行）。
+        # GiveMeABreakTests 仅依赖纯 Foundation 的 GiveMeABreakEngine，无系统权限、无 GUI，CI 安全可跑。
         run: make test
 
       - name: Upload build artifacts on failure
@@ -73,7 +73,7 @@ jobs:
     name: Build (release compile check)
     runs-on: macos-14
     # 串行而非并行（省 macOS 额度）：test job 的 swift run 已隐含编译 Engine+Tests；
-    # build job 验证 release 全量编译（含 TimeoutIntegrations/Timeout），缓存全热下秒级完成。
+    # build job 验证 release 全量编译（含 GiveMeABreakIntegrations/GiveMeABreak），缓存全热下秒级完成。
     # 若需 fail-fast（编译错误立即暴露），可删除本行改并行。
     needs: test
     steps:
@@ -91,14 +91,14 @@ jobs:
       - name: Upload release binary
         uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
         with:
-          name: timeout-binary-${{ github.sha }}
-          path: .build/release/Timeout
+          name: give-me-a-break-binary-${{ github.sha }}
+          path: .build/release/GiveMeABreak
           if-no-files-found: error
           retention-days: 7
 
   # ────────────────────────────────────────────────────────────────────────
   # Windows · C# net8.0 逻辑层测试（Phase 0 核心 + Phase 1 Win32 互操作层）。
-  # 测 windows/TimeoutEngine.sln（不含 net8.0-windows 壳）。Swift Sources/ 零改动。
+  # 测 windows/GiveMeABreakEngine.sln（不含 net8.0-windows 壳）。Swift Sources/ 零改动。
   dotnet-test:
     name: Test (C# net8.0 · Windows)
     runs-on: windows-latest
@@ -115,7 +115,7 @@ jobs:
       - name: Run tests (net8.0 core + Win32 logic layer)
         # 引擎核心 25 + Win32 互操作 12（粉噪音/空闲回绕/媒体键）。本地已验证 37 通过。
         # 两端共用 shared/ 黄金 fixture 保证 FSM 不漂移。
-        run: dotnet test windows/TimeoutEngine.sln -c Release --nologo
+        run: dotnet test windows/GiveMeABreakEngine.sln -c Release --nologo
 
   # ────────────────────────────────────────────────────────────────────────
   # macOS · C# net8.0 逻辑层测试（Phase 1）：证明 Win32 互操作层 + 引擎核心真跨平台可编译可测。
@@ -132,7 +132,7 @@ jobs:
           dotnet-version: '8.0.x'
       - name: Run tests (net8.0 core + Win32 logic layer)
         # 仅 net8.0 sln（不含 net8.0-windows 壳），macOS 可编译。
-        run: dotnet test windows/TimeoutEngine.sln -c Release --nologo
+        run: dotnet test windows/GiveMeABreakEngine.sln -c Release --nologo
 
   # ────────────────────────────────────────────────────────────────────────
   # Windows · Phase 1 WPF 壳编译（L2）：验证 net8.0-windows 工程可编译、publish 出 exe。
@@ -148,20 +148,20 @@ jobs:
         with:
           dotnet-version: '8.0.x'
       - name: Build shell (release)
-        run: dotnet build windows/TimeoutShell/TimeoutShell.csproj -c Release --nologo
+        run: dotnet build windows/GiveMeABreakShell/GiveMeABreakShell.csproj -c Release --nologo
       - name: Publish self-contained (win-x64)
-        run: dotnet publish windows/TimeoutShell/TimeoutShell.csproj -c Release -r win-x64 --self-contained -o ./publish --nologo
+        run: dotnet publish windows/GiveMeABreakShell/GiveMeABreakShell.csproj -c Release -r win-x64 --self-contained -o ./publish --nologo
       - name: Upload shell artifact
         uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
         with:
-          name: timeout-shell-${{ github.sha }}
+          name: give-me-a-break-shell-${{ github.sha }}
           path: ./publish/
           if-no-files-found: error
           retention-days: 7
 
   # ────────────────────────────────────────────────────────────────────────
   # Windows · Phase 1 headless 烟测（L3）：壳启动不崩 + 引擎装配闭环。
-  # TIMEOUT_HEADLESS 跳过托盘/WASAPI 真实实例化（无 shell/无设备）；TIMEOUT_DEBUG 极速配置触发相位转移。
+  # GIVEMEABREAK_HEADLESS 跳过托盘/WASAPI 真实实例化（无 shell/无设备）；GIVEMEABREAK_DEBUG 极速配置触发相位转移。
   # 能证：装配成功 + 无未处理异常。不能证：托盘可见/出声/QQ音乐响应（归用户真机验收）。
   dotnet-smoke-shell:
     name: Smoke (WPF shell headless · run 6s)
@@ -175,13 +175,13 @@ jobs:
         with:
           dotnet-version: '8.0.x'
       - name: Publish
-        run: dotnet publish windows/TimeoutShell/TimeoutShell.csproj -c Release -r win-x64 --self-contained -o ./publish --nologo
+        run: dotnet publish windows/GiveMeABreakShell/GiveMeABreakShell.csproj -c Release -r win-x64 --self-contained -o ./publish --nologo
       - name: Headless run (expect装配成功 + 无未处理异常)
         shell: pwsh
         run: |
-          $env:TIMEOUT_HEADLESS = "1"
-          $env:TIMEOUT_DEBUG = "1"
-          $p = Start-Process -FilePath ".\publish\TimeoutShell.exe" -PassThru -NoNewWindow -RedirectStandardOutput shell-out.log -RedirectStandardError shell-err.log
+          $env:GIVEMEABREAK_HEADLESS = "1"
+          $env:GIVEMEABREAK_DEBUG = "1"
+          $p = Start-Process -FilePath ".\publish\GiveMeABreakShell.exe" -PassThru -NoNewWindow -RedirectStandardOutput shell-out.log -RedirectStandardError shell-err.log
           Start-Sleep -Seconds 6
           if (-not $p.HasExited) {
             Write-Host "进程存活 6s（headless 应 5s 自退）→ 强制结束（视为正常）"
@@ -197,7 +197,7 @@ jobs:
           if ($log -notmatch "STARTUP_OK") { Write-Error "未见 STARTUP_OK 标记"; exit 1 }
           # Phase 2：遮罩 Show 被调用（OK 或降级 FAIL 任一），证明 FullscreenOverlayController 接入闭环
           if ($log -notmatch "OVERLAY_SHOW_(OK|FAIL)") { Write-Error "未见 OVERLAY_SHOW 标记，遮罩 Show 未触发（Phase 2）"; exit 1 }
-          # Phase 3：graphClientId 空（TIMEOUT_DEBUG）→ EmptyCalendarProvider 降级，证明条件注入走对路径
+          # Phase 3：graphClientId 空（GIVEMEABREAK_DEBUG）→ EmptyCalendarProvider 降级，证明条件注入走对路径
           if ($log -notmatch "CALENDAR_DEGRADED") { Write-Error "未见 CALENDAR_DEGRADED 标记，日历条件注入未走降级（Phase 3）"; exit 1 }
           $err = Get-Content shell-err.log -Raw -ErrorAction SilentlyContinue
           if ($err -match "Unhandled|Exception:") { Write-Error "stderr 含未处理异常：$err"; exit 1 }

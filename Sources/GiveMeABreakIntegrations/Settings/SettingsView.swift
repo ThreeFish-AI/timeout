@@ -1,4 +1,6 @@
+import AppKit
 import SwiftUI
+import UniformTypeIdentifiers
 import GiveMeABreakEngine
 
 // MARK: - TimeOfDay ↔ Date 桥接（DatePicker hourAndMinute 需要 Date）
@@ -170,15 +172,55 @@ struct SettingsView: View {
 
     private var soundSection: some View {
         Section {
+            restMusicRow
             Toggle("休息时播放舒缓白噪音", isOn: $draft.ambientSoundEnabled)
-                .accessibilityHint("内置粉噪音，无需安装任何播放器")
+                .accessibilityHint("内置粉噪音，无需安装任何播放器；当上方设置了休息音乐时将被取代")
             Toggle("联动 QQ 音乐", isOn: $draft.controlQQMusic)
                 .accessibilityHint("需安装 QQ 音乐并授予辅助功能权限")
         } header: {
             Text("休息音效")
         } footer: {
-            Text("白噪音由应用内置合成，可靠且不依赖外部播放器；QQ 音乐联动经系统媒体键控制，需安装并授权辅助功能。")
+            Text("设置「休息音乐」后，休息时将循环播放你选择的本地音频文件（mp3/m4a/aac/wav/flac 等），取代内置白噪音；若文件不存在或格式不支持，会回退到白噪音。文件不被打包或分发，仅以本地路径引用——移动或删除该文件会导致回退。白噪音由应用内置合成，可靠且不依赖外部播放器；QQ 音乐联动经系统媒体键控制，需安装并授权辅助功能。")
         }
+    }
+
+    /// 自定义休息音频选择行：NSOpenPanel 选本地音频文件，存绝对路径到 draft.restMusicPath；可清除。
+    /// App 非沙盒，故直接以路径字符串引用（无需安全作用域书签）。
+    private var restMusicRow: some View {
+        HStack(spacing: 10) {
+            Text("休息音乐")
+            Spacer(minLength: 8)
+            if let p = draft.restMusicPath?.trimmingCharacters(in: .whitespacesAndNewlines), !p.isEmpty {
+                Image(systemName: "music.note")
+                    .foregroundStyle(.secondary)
+                Text((p as NSString).lastPathComponent)
+                    .lineLimit(1)
+                    .truncationMode(.middle)
+                    .foregroundStyle(.secondary)
+                    .accessibilityLabel("当前休息音乐：\((p as NSString).lastPathComponent)")
+                Button("清除") { draft.restMusicPath = nil }
+                    .buttonStyle(.borderless)
+                    .accessibilityHint("清除自定义休息音乐，回退到内置白噪音")
+            }
+            Button(draft.restMusicPath?.isEmpty ?? true ? "选择文件…" : "更换…") { pickRestMusicFile() }
+                .accessibilityHint("选择本地音频文件（mp3/m4a/aac/wav/flac）作为休息音乐，取代白噪音")
+        }
+    }
+
+    private func pickRestMusicFile() {
+        let panel = NSOpenPanel()
+        panel.title = "选择休息音乐"
+        panel.allowsMultipleSelection = false
+        panel.canChooseDirectories = false
+        panel.canChooseFiles = true
+        // 以扩展名解析 UTType，覆盖 mp3/m4a/aac/wav/flac/aiff/caf 等（FLAC 无稳定系统常量，故走 filenameExtension）。
+        var types: Set<UTType> = [.mp3, .mpeg4Audio, .wav, .aiff, .audio]
+        for ext in ["mp3", "m4a", "aac", "wav", "flac", "aiff", "aif", "caf"] {
+            if let t = UTType(filenameExtension: ext) { types.insert(t) }
+        }
+        panel.allowedContentTypes = Array(types)
+        guard panel.runModal() == .OK, let url = panel.url else { return }
+        draft.restMusicPath = url.path
     }
 
     // MARK: - 工作日志（休息前记录）

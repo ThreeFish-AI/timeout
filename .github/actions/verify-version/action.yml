@@ -1,0 +1,36 @@
+# 复用基建：版本一致性校验（Single Source of Truth）。
+# tag 与 Resources/Info.plist 的 CFBundleShortVersionString 必须一致；输出统一版本号供 macOS/Windows 双 job 复用。
+# 边界：本 action 不含 checkout（单一职责）；调用方须先 actions/checkout。
+# 设计动机：原 release.yml 仅 macOS job 校验、Windows job 不校验，双 job 版本解析不对称——
+#   tag 不一致时 macOS fail 但 Windows 静默产错误版本号产物（半成品）。收敛为共享 action 后两 job 同源强校验。
+name: Verify version (tag ↔ Info.plist)
+description: 校验 git tag 与 Resources/Info.plist 版本一致（SSOT），输出统一版本号；macOS/Windows 双 job 复用（调用方需先 checkout）。
+
+outputs:
+  version:
+    description: 统一版本号（tag 触发时已校验与 Info.plist 一致；dispatch 时取 Info.plist 值）
+    value: ${{ steps.ver.outputs.version }}
+
+runs:
+  using: composite
+  steps:
+    - name: Resolve & verify version
+      id: ver
+      shell: bash
+      run: |
+        set -euo pipefail
+        # 跨平台读 plist：Windows runner 无 PlistBuddy，用 grep/sed 解析 XML（范式源自原 release.yml Windows resolve）。
+        PLIST_V=$(grep -A1 'CFBundleShortVersionString' Resources/Info.plist \
+                  | grep '<string>' | sed 's/.*<string>\(.*\)<\/string>.*/\1/')
+        if [[ -z "${PLIST_V}" ]]; then
+          echo "::error::无法从 Resources/Info.plist 解析 CFBundleShortVersionString，请检查 plist 结构。"
+          exit 1
+        fi
+        if [[ "${GITHUB_REF}" == refs/tags/v* ]]; then
+          TAG_V="${GITHUB_REF#refs/tags/v}"
+          if [[ "${TAG_V}" != "${PLIST_V}" ]]; then
+            echo "::error::版本不一致：git tag (${TAG_V}) ≠ Info.plist (${PLIST_V})。请先更新 Resources/Info.plist 的 CFBundleShortVersionString 再打 tag。"
+            exit 1
+          fi
+        fi
+        echo "version=${PLIST_V}" >> "$GITHUB_OUTPUT"

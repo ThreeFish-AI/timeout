@@ -1,0 +1,15 @@
+<Project Sdk="Microsoft.NET.Sdk">
+
+  <!-- Give me a break · Phase 1 · Win32 互操作 + 粉噪音算法（net8.0，跨平台可编译可测）。
+       关键：[DllImport] 是元数据，net8.0 在 macOS 可编译；实际 P/Invoke 执行在 Windows（壳内）。
+       这一层把「签名正确性 + 算法保真」从「CI-only」下沉到「本地可测」，最大化可验证面积。 -->
+  <PropertyGroup>
+    <TargetFramework>net8.0</TargetFramework>
+    <ImplicitUsings>enable</ImplicitUsings>
+    <Nullable>enable</Nullable>
+    <LangVersion>latest</LangVersion>
+    <RootNamespace>GiveMeABreakEngine.Win32</RootNamespace>
+    <AssemblyName>GiveMeABreakEngine.Win32</AssemblyName>
+  </PropertyGroup>
+
+</Project>

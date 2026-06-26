@@ -1,8 +1,8 @@
 import Foundation
 
-// 测试入口（top-level main.swift）。make test → swift run TimeoutTests
+// 测试入口（top-level main.swift）。make test → swift run GiveMeABreakTests
 
-print("⏱  TimeoutEngine 单元测试\n")
+print("⏱  GiveMeABreakEngine 单元测试\n")
 
 runEvaluateCases()
 print("")
@@ -11,6 +11,8 @@ print("")
 runEngineWiringCases()
 print("")
 runConfigStoreCases()
+print("")
+runWorkLogCases()
 
 print("\n──────────────────────────────")
 print("结果：\(testPassed) 通过，\(testFailed) 失败")

@@ -1,0 +1,260 @@
+# Give me a break — 发布 CD（持续交付）· 多平台（macOS + Windows）。
+# 触发：git tag v*（版本即 tag，不可变锚点）+ workflow_dispatch（手动补刀 / prerelease）。
+# 架构（docs/windows-port-design.md §7）：单 workflow + 3 job 规避多 workflow 同 tag 竞态——
+#   macos job（①-⑥ 现有链路逐字保留，演进式签名）+ windows job（dotnet publish self-contained，无签名）
+#   → release job（needs [macos, windows] 收敛）一次性 softprops/action-gh-release 挂双 asset。
+# macOS 演进式签名不变（ENABLE_DEVELOPER_ID_SIGNING + secrets）；Windows 暂不签名（SmartScreen 告知，签名留后续）。
+name: Release
+
+on:
+  push:
+    tags:
+      - 'v*'
+  workflow_dispatch:
+    inputs:
+      prerelease:
+        description: '标记为预发布（pre-release）'
+        required: false
+        default: false
+        type: boolean
+      skip_notarize:
+        description: '跳过公证（仅内测，慎用）'
+        required: false
+        default: false
+        type: boolean
+
+# 创建 Release + 上传 asset 必需 contents:write；其余默认 none（最小权限）。
+permissions:
+  contents: write
+
+# 发布不可被取消（cancel-in-progress: false），避免半成品 Release 残留。
+concurrency:
+  group: release-${{ github.ref }}
+  cancel-in-progress: false
+
+jobs:
+  # ────────────────────────────────────────────────────────────────────────
+  # macOS · 现有链路 ①-⑥ 逐字保留（演进式签名），仅末尾改 upload-artifact + markers。
+  macos:
+    name: Build & package (macOS)
+    runs-on: macos-15   # macos-14 将于 2026-07-06 弃用（2026-11-02 下线）；macos-15 默认 Xcode 16.4/Swift 6.0.x，满足 README baseline 且消除 Swift warning。
+    timeout-minutes: 45   # 公证高峰期预留（notarytool --wait 偶达 30+ min）
+    steps:
+      - name: Checkout
+        uses: actions/checkout@9c091bb21b7c1c1d1991bb908d89e4e9dddfe3e0 # v7.0.0
+
+      - name: Setup macOS + Swift (cached)
+        uses: ./.github/actions/setup-macos-swift
+
+      # ① 版本一致性校验（SSOT）：复用共享 action，macOS/Windows 双 job 同源强校验（堵原 Windows 不校验漏洞）。
+      - name: Resolve version & verify tag↔Info.plist consistency
+        id: ver
+        uses: ./.github/actions/verify-version
+      - name: Export RELEASE_VERSION
+        run: echo "RELEASE_VERSION=${{ steps.ver.outputs.version }}" >> "$GITHUB_ENV"
+
+      # ② 构建+装配（复用 make app 单一事实源；产物 ad-hoc 签名，结构可启动）。
+      - name: Build & assemble GiveMeABreak.app
+        run: make app
+
+      # ③a 检测签名/公证 secrets 是否存在。
+      - name: Detect signing/notarization secrets
+        id: signing
+        env:
+          MACOS_CERTIFICATE: ${{ secrets.MACOS_CERTIFICATE }}
+          APPLE_ID: ${{ secrets.APPLE_ID }}
+        run: |
+          if [ -n "$MACOS_CERTIFICATE" ]; then echo "has_cert=true" >> "$GITHUB_OUTPUT"; else echo "has_cert=false" >> "$GITHUB_OUTPUT"; fi
+          if [ -n "$APPLE_ID" ]; then echo "has_notarize=true" >> "$GITHUB_OUTPUT"; else echo "has_notarize=false" >> "$GITHUB_OUTPUT"; fi
+
+      # ③ 条件 Developer ID 重签（演进升级；--force 覆盖 make app 的 ad-hoc 签名）。
+      - name: Import cert & re-sign with Developer ID
+        if: ${{ vars.ENABLE_DEVELOPER_ID_SIGNING == 'true' && steps.signing.outputs.has_cert == 'true' }}
+        env:
+          MACOS_CERTIFICATE: ${{ secrets.MACOS_CERTIFICATE }}
+          MACOS_CERTIFICATE_PWD: ${{ secrets.MACOS_CERTIFICATE_PWD }}
+          KEYCHAIN_PASSWORD: ${{ secrets.KEYCHAIN_PASSWORD }}
+          SIGNING_IDENTITY: ${{ secrets.SIGNING_IDENTITY }}
+        run: |
+          set -euo pipefail
+          CERT_FILE=$(mktemp /tmp/dev_id.p12.XXXX)
+          echo "$MACOS_CERTIFICATE" | base64 --decode > "$CERT_FILE"
+          KC="$RUNNER_TEMP/build.keychain-db"
+          security create-keychain -p "$KEYCHAIN_PASSWORD" "$KC"
+          security set-keychain-settings -lut 21600 "$KC"
+          security unlock-keychain -p "$KEYCHAIN_PASSWORD" "$KC"
+          security import "$CERT_FILE" -P "$MACOS_CERTIFICATE_PWD" -A -t cert -f pkcs12 -k "$KC"
+          security set-key-partition-list -S apple-tool:,apple:,codesign: -s -k "$KEYCHAIN_PASSWORD" "$KC"
+          echo "==> 可用签名 identity（排障）："
+          security find-identity -v -p codesigning "$KC"
+          codesign --force --deep --options runtime --timestamp \
+            --entitlements Resources/GiveMeABreakRelease.entitlements \
+            --keychain "$KC" -s "$SIGNING_IDENTITY" GiveMeABreak.app
+          rm -f "$CERT_FILE"
+          security delete-keychain "$KC"
+
+      # ④ 条件公证（notarytool submit --wait + stapler staple）。
+      - name: Notarize & staple
+        if: ${{ vars.ENABLE_DEVELOPER_ID_SIGNING == 'true' && steps.signing.outputs.has_notarize == 'true' && github.event.inputs.skip_notarize != 'true' }}
+        env:
+          APPLE_ID: ${{ secrets.APPLE_ID }}
+          APPLE_APP_SPECIFIC_PASSWORD: ${{ secrets.APPLE_APP_SPECIFIC_PASSWORD }}
+          APPLE_TEAM_ID: ${{ secrets.APPLE_TEAM_ID }}
+        run: |
+          set -euo pipefail
+          cd "$RUNNER_TEMP"
+          # ditto 保留 bundle 符号链接/权限；zip 会破坏符号链接致签名失效。
+          ditto -c -k --keepParent "$GITHUB_WORKSPACE/GiveMeABreak.app" "give-me-a-break-${RELEASE_VERSION}-macos.zip"
+          xcrun notarytool submit "give-me-a-break-${RELEASE_VERSION}-macos.zip" \
+            --apple-id "$APPLE_ID" \
+            --password "$APPLE_APP_SPECIFIC_PASSWORD" \
+            --team-id "$APPLE_TEAM_ID" \
+            --wait --timeout 30m
+          cd "$GITHUB_WORKSPACE"
+          xcrun stapler staple GiveMeABreak.app
+          echo "NOTARIZED=true" >> "$GITHUB_ENV"
+
+      # ⑤ 打包发布物（复用公证 zip 或现打）。
+      - name: Package release zip
+        run: |
+          set -euo pipefail
+          cd "$RUNNER_TEMP"
+          if [ ! -f "give-me-a-break-${RELEASE_VERSION}-macos.zip" ]; then
+            ditto -c -k --keepParent "$GITHUB_WORKSPACE/GiveMeABreak.app" "give-me-a-break-${RELEASE_VERSION}-macos.zip"
+          fi
+          echo "RELEASE_ZIP=$RUNNER_TEMP/give-me-a-break-${RELEASE_VERSION}-macos.zip" >> "$GITHUB_ENV"
+
+      # ⑥ Verification Before Done —— 发布前自证三件套（AGENTS.md「交付前验证定式」）。
+      - name: Verify codesign integrity（always，ad-hoc 也校验结构完整性）
+        run: codesign --verify --deep --strict --verbose=2 GiveMeABreak.app
+
+      - name: Verify Gatekeeper & staple（only when notarized）
+        if: env.NOTARIZED == 'true'
+        run: |
+          set -euo pipefail
+          spctl -a -vvvv -t install GiveMeABreak.app
+          xcrun stapler validate GiveMeABreak.app
+
+      # ⑦ 上传 artifact（Release 创建上移到 release 收敛 job）+ 版本/公证 markers（供 release job 跨 job 读取）。
+      - name: Write version & notarized markers
+        run: |
+          echo "${RELEASE_VERSION}" > version.txt
+          echo "${NOTARIZED:-false}" > notarized.txt
+
+      - name: Upload macOS zip artifact
+        uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
+        with:
+          name: macos-zip
+          path: ${{ env.RELEASE_ZIP }}
+          if-no-files-found: error
+
+      - name: Upload markers artifact
+        uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
+        with:
+          name: markers
+          path: |
+            version.txt
+            notarized.txt
+          if-no-files-found: error
+
+  # ────────────────────────────────────────────────────────────────────────
+  # Windows · dotnet publish self-contained（对齐 ci.yml dotnet-build-shell 范式）· 无签名。
+  windows:
+    name: Build & package (Windows)
+    runs-on: windows-latest
+    timeout-minutes: 25
+    steps:
+      - name: Checkout
+        uses: actions/checkout@9c091bb21b7c1c1d1991bb908d89e4e9dddfe3e0 # v7.0.0
+
+      - name: Setup .NET 8
+        # NOTE: 暂用 tag，待人工/Dependabot SHA-pin 对齐仓库其余 action 规范。
+        uses: actions/setup-dotnet@v4
+        with:
+          dotnet-version: '8.0.x'
+
+      # 版本：复用共享 verify-version action，与 macos job 同源强校验（堵原 Windows 不校验漏洞）。
+      - name: Resolve version & verify consistency
+        id: ver
+        uses: ./.github/actions/verify-version
+      - name: Export RELEASE_VERSION
+        shell: bash
+        run: echo "RELEASE_VERSION=${{ steps.ver.outputs.version }}" >> "$GITHUB_ENV"
+
+      # publish self-contained（含 .NET 8 + WindowsDesktop runtime，免用户装 .NET；对齐 ci.yml 范式）。
+      - name: Publish self-contained (win-x64)
+        run: dotnet publish windows/GiveMeABreakShell/GiveMeABreakShell.csproj -c Release -r win-x64 --self-contained -p:Version=${{ env.RELEASE_VERSION }} -o ./publish --nologo
+
+      - name: Package win64 zip
+        shell: pwsh
+        run: Compress-Archive -Path ./publish/* -DestinationPath "give-me-a-break-${{ env.RELEASE_VERSION }}-win64.zip" -Force
+
+      - name: Upload Windows zip artifact
+        uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
+        with:
+          name: windows-zip
+          path: give-me-a-break-${{ env.RELEASE_VERSION }}-win64.zip
+          if-no-files-found: error
+
+  # ────────────────────────────────────────────────────────────────────────
+  # Release 收敛 · needs [macos, windows] → 一次性 softprops 挂双 asset（规避多 workflow 竞态）。
+  release:
+    name: Create GitHub Release (dual asset)
+    runs-on: ubuntu-latest
+    needs: [macos, windows]
+    timeout-minutes: 10
+    steps:
+      - name: Download markers
+        # NOTE: 暂用 tag，待 SHA-pin。
+        uses: actions/download-artifact@v4
+        with:
+          name: markers
+
+      - name: Download macOS zip
+        uses: actions/download-artifact@v4
+        with:
+          name: macos-zip
+
+      - name: Download Windows zip
+        uses: actions/download-artifact@v4
+        with:
+          name: windows-zip
+
+      - name: Resolve version & notarized state
+        run: |
+          set -euo pipefail
+          echo "RELEASE_VERSION=$(cat version.txt)" >> "$GITHUB_ENV"
+          echo "NOTARIZED=$(cat notarized.txt)" >> "$GITHUB_ENV"
+
+      # download-artifact v4 解压到 <name>/ 子目录，归拢到当前目录供 softprops files: 引用。
+      - name: Flatten asset layout & verify
+        run: |
+          set -euo pipefail
+          mv macos-zip/*.zip . 2>/dev/null || true
+          mv windows-zip/*.zip . 2>/dev/null || true
+          ls -la give-me-a-break-*.zip
+          test -f "give-me-a-break-${RELEASE_VERSION}-macos.zip"
+          test -f "give-me-a-break-${RELEASE_VERSION}-win64.zip"
+
+      - name: Create GitHub Release
+        uses: softprops/action-gh-release@718ea10b132b3b2eba29c1007bb80653f286566b # v3.0.1
+        with:
+          tag_name: v${{ env.RELEASE_VERSION }}
+          name: Give me a break ${{ env.RELEASE_VERSION }}
+          files: |
+            give-me-a-break-${{ env.RELEASE_VERSION }}-macos.zip
+            give-me-a-break-${{ env.RELEASE_VERSION }}-win64.zip
+          fail_on_unmatched_files: true
+          prerelease: ${{ github.event.inputs.prerelease == 'true' }}
+          body: |
+            ## Give me a break ${{ env.RELEASE_VERSION }}
+
+            ### macOS
+            下载 `give-me-a-break-${{ env.RELEASE_VERSION }}-macos.zip`。解压后将 `GiveMeABreak.app` 拖入 `/Applications`；首次启动需在「系统设置 → 隐私与安全性」授权辅助功能与媒体控制权限。
+
+            ${{ env.NOTARIZED == 'true' && '> ✅ 已通过 Apple 公证（Notarized）+ Developer ID 签名，Gatekeeper 可直接放行。' || '> ⚠️ 此版本为 ad-hoc 签名（未签名/未公证）。首次打开会被 Gatekeeper 拦截，请执行 `xattr -dr com.apple.quarantine /Applications/GiveMeABreak.app` 放行（macOS 15.1 Sequoia 起「右键→打开」已失效），仅供内测。' }}
+
+            ### Windows
+            下载 `give-me-a-break-${{ env.RELEASE_VERSION }}-win64.zip`。解压后运行 `GiveMeABreakShell.exe`。内置 .NET 8 运行时，**无需额外安装任何依赖**。
+
+            > ⚠️ **此 Windows 版本未签名**。首次运行会被 SmartScreen 拦截，请点击「更多信息 → 仍要运行」。`GiveMeABreakShell.exe` 可能被杀软（Defender / 360 / 火绒）误报（`WH_KEYBOARD_LL` 键盘钩子 + `SendInput` 媒体键触发），需手动加入信任。代码签名将在后续版本提供。

@@ -17,13 +17,17 @@ config.local.yaml
 # Swift / SPM / Xcode
 .build/
 .swiftpm/
-Timeout.app/
+GiveMeABreak.app/
 Resources/AppIcon.iconset/
 DerivedData/
 build/
 *.xcuserstate
 *.xcuserdata
 *.moved-aside
-Timeout.xcodeproj/xcuserdata/
-Timeout.xcodeproj/project.xcworkspace/xcuserdata/
+GiveMeABreak.xcodeproj/xcuserdata/
+GiveMeABreak.xcodeproj/project.xcworkspace/xcuserdata/
 Package.resolved
+
+# .NET（windows/ C# 重写 · Phase 0）
+windows/**/bin/
+windows/**/obj/

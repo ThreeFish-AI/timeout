@@ -1,0 +1,35 @@
+{
+  "$comment": "sideEffects 进入/离开 resting 的幂等副作用黄金用例（镜像 Engine.swift sideEffects 语义 + tests/EngineTransitionCases U9）。缺字段默认 false。",
+  "cases": [
+    {
+      "name": "进入休息：showOverlay + startMusic",
+      "from": "working",
+      "to": "resting",
+      "expected": { "showOverlay": true, "dismissOverlay": false, "startMusic": true, "pauseMusic": false }
+    },
+    {
+      "name": "离开休息：dismissOverlay + pauseMusic",
+      "from": "resting",
+      "to": "working",
+      "expected": { "showOverlay": false, "dismissOverlay": true, "startMusic": false, "pauseMusic": true }
+    },
+    {
+      "name": "会议打断休息：dismiss + pause",
+      "from": "resting",
+      "to": "inMeeting",
+      "expected": { "showOverlay": false, "dismissOverlay": true, "startMusic": false, "pauseMusic": true }
+    },
+    {
+      "name": "idle→resting 仍触发遮罩",
+      "from": "idle",
+      "to": "resting",
+      "expected": { "showOverlay": true, "dismissOverlay": false, "startMusic": true, "pauseMusic": false }
+    },
+    {
+      "name": "工作同态：全空",
+      "from": "working",
+      "to": "working",
+      "expected": { "showOverlay": false, "dismissOverlay": false, "startMusic": false, "pauseMusic": false }
+    }
+  ]
+}

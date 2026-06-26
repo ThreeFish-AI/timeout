@@ -3,7 +3,7 @@
 > macOS 菜单栏强制作息应用——在自定义工作时段内执行「工作 / 强制休息」节律，休息时**遮罩全部显示器**并**播放舒缓音效**（内置粉噪音 + 可选 QQ 音乐联动）；接入 **Google 日历**会议，会议计为工作时间但**休息自然后延**。
 
 ![macOS](https://img.shields.io/badge/macOS-14%2B-000000) ![Swift](https://img.shields.io/badge/Swift-SPM-F05138) ![License](https://img.shields.io/badge/license-MIT-blue)
-[![CI](https://github.com/ThreeFish-AI/give-me-a-break/actions/workflows/ci.yml/badge.svg?branch=master)](https://github.com/ThreeFish-AI/give-me-a-break/actions/workflows/ci.yml) [![Lint](https://github.com/ThreeFish-AI/give-me-a-break/actions/workflows/lint.yml/badge.svg?branch=master)](https://github.com/ThreeFish-AI/give-me-a-break/actions/workflows/lint.yml)
+[![CI](https://github.com/ThreeFish-AI/give-me-a-break/actions/workflows/ci.yml/badge.svg?branch=feature/1.x.x)](https://github.com/ThreeFish-AI/give-me-a-break/actions/workflows/ci.yml) [![Lint](https://github.com/ThreeFish-AI/give-me-a-break/actions/workflows/lint.yml/badge.svg?branch=feature/1.x.x)](https://github.com/ThreeFish-AI/give-me-a-break/actions/workflows/lint.yml)
 
 ## 设计哲学
 
@@ -50,6 +50,18 @@ flowchart LR
 ```
 
 **正交分解**（[详细 FSM](./docs/give-me-a-break-design.md#调度引擎)）：`evaluate` 是零时间依赖纯函数（注入虚拟时钟可测）；`LiveGiveMeABreakEngine` 仅汇聚输入 + 调用纯函数 + 幂等分发；三大 Controller 各封装系统 API 与权限。三模块：`GiveMeABreakEngine`（纯核心）、`GiveMeABreakIntegrations`（AppKit/EventKit/CGEvent）、`GiveMeABreak`（@main 壳）。
+
+## 下载与安装（Release 资产）
+
+本版本为**内测 / Beta**：双端均**未做代码签名 / 公证**（GA 待补 macOS 签名公证 + Windows 真机验收）。从 [Releases](https://github.com/ThreeFish-AI/give-me-a-break/releases) 下载对应平台 zip。
+
+**macOS**（`give-me-a-break-*-macos.zip`）：ad-hoc 签名、未公证，首次打开会被 Gatekeeper 拦截。解压后将 `GiveMeABreak.app` 拖入 `/Applications`，在终端执行一次去隔离即可正常启动（macOS 15 起已无右键「打开」旁路）：
+
+```bash
+xattr -dr com.apple.quarantine /Applications/GiveMeABreak.app
+```
+
+**Windows 10/11 x64**（`give-me-a-break-*-win64.zip`）：自包含、未签名。SmartScreen 提示时点「更多信息 → 仍要运行」；因低级键盘钩子（`WH_KEYBOARD_LL`）+ `SendInput` 媒体键，可能被 Defender / 360 / 火绒**误报**，需手动放行。解压后运行 `GiveMeABreakShell.exe`。
 
 ## 环境要求
 
@@ -123,7 +135,7 @@ Give me a break 是**非沙盒**应用（沙盒会阻断媒体键与日历自动
 
 ## 验证
 
-- **单元测试**：`make test`（30 用例，<1s）覆盖 FSM 谓词优先级、工作示例（30+30→60→10）、AFK 冻结、睡眠不回灌、fast-forward、区间合并等。详见 [设计文档](./docs/give-me-a-break-design.md#测试矩阵)。
+- **单元测试**：`make test`（47 用例，<1s）覆盖 FSM 谓词优先级、工作示例（30+30→60→10）、AFK 冻结、睡眠不回灌、fast-forward、区间合并等。详见 [设计文档](./docs/give-me-a-break-design.md#测试矩阵)。
 - **端到端**（真机，三权限 + QQ 音乐 + Google 账户）：`GIVEMEABREAK_DEBUG=1` 观察遮罩/音乐周期；正常时段等待 50min 触发；日历建会议验证推迟。
 
 ## 已知限制（透明披露）
@@ -153,10 +165,10 @@ macOS 是当前主版本。Windows 版采用 **C#/.NET 8 WPF 重写**（非 Swif
 
 **进展**（Swift `Sources/` 零改动，C# 平行重写）：
 
-- **Phase 0 ✅**：`windows/GiveMeABreakEngine/` C# 重写纯核心 + `shared/` 黄金 fixture（两端共用同一份 JSON 保证 FSM 不漂移），xUnit 25 + Swift 34 双端全绿。
-- **Phase 1 ✅**：`windows/GiveMeABreakEngine.Win32/`（net8.0 互操作层，12 测试 macOS 本地可验证）+ `windows/GiveMeABreakShell/`（net8.0-windows WPF 最小壳：NAudio 粉噪音 + SendInput 媒体键 + H.NotifyIcon 托盘）。**验证靠 CI**（macOS 无法运行 Windows-only 代码）：L1 双平台 net8.0 测试、L2 壳编译、L3 headless 烟测。
+- **Phase 0 ✅**：`windows/GiveMeABreakEngine/` C# 重写纯核心 + `shared/` 黄金 fixture（两端共用同一份 JSON 保证 FSM 不漂移），xUnit 25 + Swift 47 双端全绿。
+- **Phase 1 ✅**：`windows/GiveMeABreakEngine.Win32/`（net8.0 互操作层，18 测试 macOS 本地可验证）+ `windows/GiveMeABreakShell/`（net8.0-windows WPF 最小壳：NAudio 粉噪音 + SendInput 媒体键 + H.NotifyIcon 托盘）。**验证靠 CI**（macOS 无法运行 Windows-only 代码）：L1 双平台 net8.0 测试、L2 壳编译、L3 headless 烟测。
 - **Phase 2 ✅**：全屏强制遮罩（`WS_EX_TOPMOST` + `WH_KEYBOARD_LL` soft-force + Esc 双语义，§5 妥协设计）；CI 验证接入闭环，真实覆盖/键盘拦截/Esc 双语义归真机验收。
-- **Phase 3 ✅**：日历门控（Microsoft Graph + MSAL 设备码 + 条件注入降级，解析层/缓存/Provider mock 可测）；OAuth 授权与真实会议数据归 Windows 真机验收（CI 无账户）。
+- **Phase 3 ✅**：日历门控（Microsoft Graph + MSAL 设备码 + 条件注入降级，解析层/缓存/Provider mock 12 测试可验）；OAuth 授权与真实会议数据归 Windows 真机验收（CI 无账户）。
 - **Phase 4 ✅**：CI 多平台 Release（`release.yml` 3-job matrix，打 tag 即同时发布 macOS + Windows 双 asset）；Windows 暂无签名（SmartScreen 告知，签名留后续 Azure Trusted Signing/证书单独 workflow）。
 
 **Windows 构建**（需 Windows + .NET 8 SDK，macOS 无法编译 WPF 工程）：

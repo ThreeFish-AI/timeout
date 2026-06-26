@@ -50,7 +50,7 @@ public struct WorkWindow: Codable, Equatable, Hashable, Sendable {
 // MARK: - 一日计划配置
 
 public struct DayPlanConfig: Codable, Equatable, Sendable {
-    public static let currentSchemaVersion = 3
+    public static let currentSchemaVersion = 4
 
     public var schemaVersion: Int
     public var workWindows: [WorkWindow]
@@ -67,6 +67,11 @@ public struct DayPlanConfig: Codable, Equatable, Sendable {
     /// 进入（自然触发）休息前，弹轻量输入框记录这段工作内容与成果（工作日志），默认开。
     /// 仅对累满工作时长的自然休息生效；「立即休息」不弹。详见 WorkLogStore / WorkLogReport。
     public var workLogEnabled: Bool
+    /// 工作日志提示窗的自动放行等待时长（秒），默认 180（3 分钟）。
+    /// 超过此值未操作即等同「跳过」，自动进入休息（绝不卡住）。
+    /// 哨兵值 `0` 表示「永久等待」——不自动跳过、不自动进入休息，须用户手动操作（提交/跳过/关窗）。
+    /// 仅作用于 `workLogEnabled` 开启时的自然休息小结窗。
+    public var workLogPromptTimeoutSeconds: TimeInterval
 
     public init(
         schemaVersion: Int = DayPlanConfig.currentSchemaVersion,
@@ -79,7 +84,8 @@ public struct DayPlanConfig: Codable, Equatable, Sendable {
         afkThresholdSeconds: TimeInterval = 180,
         ambientSoundEnabled: Bool = true,
         controlQQMusic: Bool = true,
-        workLogEnabled: Bool = true
+        workLogEnabled: Bool = true,
+        workLogPromptTimeoutSeconds: TimeInterval = 180
     ) {
         self.schemaVersion = schemaVersion
         self.workWindows = workWindows
@@ -89,6 +95,7 @@ public struct DayPlanConfig: Codable, Equatable, Sendable {
         self.ambientSoundEnabled = ambientSoundEnabled
         self.controlQQMusic = controlQQMusic
         self.workLogEnabled = workLogEnabled
+        self.workLogPromptTimeoutSeconds = workLogPromptTimeoutSeconds
     }
 
     public static var defaultConfig: DayPlanConfig { DayPlanConfig() }
@@ -98,6 +105,7 @@ public struct DayPlanConfig: Codable, Equatable, Sendable {
     private enum CodingKeys: String, CodingKey {
         case schemaVersion, workWindows, workIntervalSeconds, restDurationSeconds
         case afkThresholdSeconds, ambientSoundEnabled, controlQQMusic, workLogEnabled
+        case workLogPromptTimeoutSeconds
     }
 
     public init(from decoder: Decoder) throws {
@@ -111,6 +119,8 @@ public struct DayPlanConfig: Codable, Equatable, Sendable {
         ambientSoundEnabled = try c.decodeIfPresent(Bool.self, forKey: .ambientSoundEnabled) ?? true
         controlQQMusic = try c.decodeIfPresent(Bool.self, forKey: .controlQQMusic) ?? true
         workLogEnabled = try c.decodeIfPresent(Bool.self, forKey: .workLogEnabled) ?? true
+        // 显式存在的 0（永久等待）非 nil 故会被保留，不会被误补默认 180（迁移测试钉死此行为）。
+        workLogPromptTimeoutSeconds = try c.decodeIfPresent(TimeInterval.self, forKey: .workLogPromptTimeoutSeconds) ?? d.workLogPromptTimeoutSeconds
     }
 }
 

@@ -1,12 +1,12 @@
 import SwiftUI
 import GiveMeABreakEngine
 
-/// 休息前工作日志提示视图（认知闭合仪式：< 60s 写下「完成了什么 + 可选下一步」）。
+/// 休息前工作日志提示视图（认知闭合仪式：约 30 秒写下「完成了什么 + 可选下一步」）。
 ///
 /// 设计循证（Leroy 注意力残留 / Stubblebine 插值日记 / Fogg Facilitator 提示）：
 /// - 持久标签（非 placeholder-as-label）+ 轮换占位示例抗疲劳；
 /// - 软字符计数（不硬截断、不设最小长度——最小长度是已证实的完成杀手）；
-/// - 永不阻塞：回车提交 / Esc 跳过 / 60s 自动放行；空内容提交 ≡ 跳过；
+/// - 永不阻塞：回车提交 / Esc 跳过 / 关窗放行 / 到点自动放行（等待时长可配，默认 3min；0=永久等待）；空内容提交 ≡ 跳过；
 /// - 可选「下一步」次级字段（ready-to-resume plan），显式标注 optional。
 struct WorkLogPromptView: View {
     /// 本周期累计专注时长（用于上下文行「工作 N 分钟」）。

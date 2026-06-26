@@ -187,10 +187,18 @@ struct SettingsView: View {
         Section {
             Toggle("休息前记录工作日志", isOn: $draft.workLogEnabled)
                 .accessibilityHint("自然休息前弹出输入框，记录这段时间的工作内容与成果")
+            if draft.workLogEnabled {
+                Toggle("永久等待（不自动跳过、不自动进入休息）", isOn: waitForeverBinding)
+                    .accessibilityHint("开启后小结窗不会自动消失，需手动「记录并休息」「跳过」或关闭窗口")
+                if draft.workLogPromptTimeoutSeconds > 0 {
+                    inlineStepper("自动放行等待时长", value: minutesBinding(\.workLogPromptTimeoutSeconds),
+                                  range: 1...30, step: 1, hint: "小结窗弹出后，超过此时长未操作即自动跳过进入休息")
+                }
+            }
         } header: {
             Text("工作日志")
         } footer: {
-            Text("累满工作时长的自然休息前，会弹出输入框让你花 30 秒写下刚完成的与下一步，让大脑真正放下。可在每次秒跳、60 秒后自动放行，或在此关闭。「立即休息」不弹。记录可在菜单「工作日志…」查看，生成今日/本周/本月报告。")
+            Text("累满工作时长的自然休息前，会弹出输入框让你花 30 秒写下刚完成的与下一步，让大脑真正放下。可设定等待时长后自动放行（默认 3 分钟），或开启「永久等待」让窗口停留至手动操作，或在上方关闭整个环节。「立即休息」不弹。记录可在菜单「工作日志…」查看，生成今日/本周/本月报告。")
         }
     }
 
@@ -227,6 +235,14 @@ struct SettingsView: View {
         Binding(
             get: { Int(draft[keyPath: keyPath] / 60) },
             set: { draft[keyPath: keyPath] = TimeInterval($0) * 60 }
+        )
+    }
+
+    /// 「永久等待」开关 ↔ workLogPromptTimeoutSeconds 哨兵 0。关永久即回默认 3 分钟。
+    private var waitForeverBinding: Binding<Bool> {
+        Binding(
+            get: { draft.workLogPromptTimeoutSeconds <= 0 },
+            set: { draft.workLogPromptTimeoutSeconds = $0 ? 0 : 180 }
         )
     }
 }

@@ -4,6 +4,15 @@
 
 ## Unreleased
 
+## v0.1.2-rc.2 — 2026-06-27
+
+### 新增
+
+- **休息模式自定义音频（取代内置粉噪音）**：设置 →「休息音效」新增「休息音乐」文件选择。选择本地 DRM-free 音频（mp3/m4a/aac/wav/flac/aiff 等 `AVAudioPlayer` 支持格式）后，休息时循环播放该文件取代内置粉噪音；文件**不打包、不分发**，仅以本地绝对路径引用（App 非沙盒，路径即引用）。文件缺失或格式不支持时自动回退粉噪音，保证休息必有舒缓音效。
+  - `DayPlanConfig` 新增 `restMusicPath: String?`（默认 nil=用粉噪音）；配置 schema 升级 `schemaVersion` 4 → 5，容错解码保证旧配置平滑迁移；[shared/config.schema.json](./shared/config.schema.json) 同步。
+  - `LiveMusicController` 新增 `AVAudioPlayer` 文件播放分支（无限循环、0.8 舒适响度、加载失败回退粉噪音 + 诊断日志），与既有粉噪音/QQ 音乐联动正交。
+  - 单测 50 → 53（新增 restMusicPath 默认 nil / round-trip / v4→v5 迁移 3 例，既有零回归）。
+
 ## v0.1.2-rc.1 — 2026-06-27
 
 ### 新增

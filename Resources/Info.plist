@@ -11,9 +11,9 @@
     <key>CFBundleIdentifier</key>
     <string>com.aurelius.givemeabreak</string>
     <key>CFBundleVersion</key>
-    <string>3</string>
+    <string>4</string>
     <key>CFBundleShortVersionString</key>
-    <string>0.1.2-rc.1</string>
+    <string>0.1.2-rc.2</string>
     <key>CFBundleExecutable</key>
     <string>GiveMeABreak</string>
     <key>CFBundleIconFile</key>

@@ -147,4 +147,48 @@ func runConfigStoreCases() {
         expectEqual(loaded.ambientSoundEnabled, false, "原 ambientSoundEnabled=false 应保留")
         expectEqual(loaded.workWindows.count, 1, "原工作窗口应保留")
     }
+
+    test("restMusicPath 默认 nil：旧配置缺该字段补 nil") {
+        let store = try! ConfigStore(directory: makeTempDir())
+        let loaded = store.loadConfig()  // 无文件 → 默认
+        expect(loaded.restMusicPath == nil, "默认 restMusicPath 应为 nil（无自定义音频，回退粉噪音）")
+    }
+
+    test("restMusicPath round-trip：自定义本地音频路径") {
+        let store = try! ConfigStore(directory: makeTempDir())
+        var config = DayPlanConfig.defaultConfig
+        config.restMusicPath = "/Users/demo/Music/windy-hill.mp3"
+        try! store.saveConfig(config)
+        expectEqual(store.loadConfig().restMusicPath, "/Users/demo/Music/windy-hill.mp3", "自定义音频路径应原样读回")
+    }
+
+    test("schema 迁移：旧 v4 config 缺 restMusicPath → 升 v5 补 nil，旧字段保留") {
+        let dir = makeTempDir()
+        let store = try! ConfigStore(directory: dir)
+        let seed = DayPlanConfig(
+            schemaVersion: 4,
+            workWindows: [WorkWindow(start: TimeOfDay(hours: 9), end: TimeOfDay(hours: 12))],
+            workIntervalSeconds: 3000,
+            restDurationSeconds: 600,
+            afkThresholdSeconds: 180,
+            ambientSoundEnabled: true,
+            controlQQMusic: true,
+            workLogEnabled: true,
+            workLogPromptTimeoutSeconds: 240
+            // restMusicPath 不传（v5 新增，模拟旧 v4 配置）
+        )
+        try! store.saveConfig(seed)
+        let cfgURL = dir.appendingPathComponent("config.json")
+        var json = try! JSONSerialization.jsonObject(with: Data(contentsOf: cfgURL)) as! [String: Any]
+        json.removeValue(forKey: "restMusicPath")  // 确保 v4 旧配置无此字段
+        json["schemaVersion"] = 4
+        let rewritten = try! JSONSerialization.data(withJSONObject: json, options: [.prettyPrinted])
+        try! rewritten.write(to: cfgURL)
+
+        let loaded = store.loadConfig()
+        expectEqual(loaded.schemaVersion, DayPlanConfig.currentSchemaVersion, "v4→v5 版本号应规范化")
+        expect(loaded.restMusicPath == nil, "缺失的 restMusicPath 应补 nil")
+        expectEqual(loaded.workLogPromptTimeoutSeconds, 240, "原 workLogPromptTimeoutSeconds 应保留")
+        expectEqual(loaded.workWindows.count, 1, "原工作窗口应保留")
+    }
 }

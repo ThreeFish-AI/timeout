@@ -1,9 +1,14 @@
+<div align="center">
+
 # Give me a break 🍅
 
-> macOS 菜单栏强制作息应用——在自定义工作时段内执行「工作 / 强制休息」节律，休息时**遮罩全部显示器**并**播放舒缓音效**（内置粉噪音 + 可选 QQ 音乐联动）；接入 **Google 日历**会议，会议计为工作时间但**休息自然后延**。
+**macOS 菜单栏强制作息应用**
+
+在自定义工作时段内执行「工作 / 强制休息」节律，休息时**遮罩全部显示器**并**播放舒缓音效**（内置粉噪音 + 可选 QQ 音乐联动）；接入 **Google 日历**会议，会议计为工作时间但**休息自然后延**。
 
 ![macOS](https://img.shields.io/badge/macOS-14%2B-000000) ![Swift](https://img.shields.io/badge/Swift-SPM-F05138) ![License](https://img.shields.io/badge/license-MIT-blue)
-[![CI](https://github.com/ThreeFish-AI/give-me-a-break/actions/workflows/ci.yml/badge.svg?branch=feature/1.x.x)](https://github.com/ThreeFish-AI/give-me-a-break/actions/workflows/ci.yml) [![Lint](https://github.com/ThreeFish-AI/give-me-a-break/actions/workflows/lint.yml/badge.svg?branch=feature/1.x.x)](https://github.com/ThreeFish-AI/give-me-a-break/actions/workflows/lint.yml)
+
+</div>
 
 ## 设计哲学
 
@@ -95,11 +100,11 @@ GIVEMEABREAK_DEBUG=1 .build/release/GiveMeABreak
 
 Give me a break 是**非沙盒**应用（沙盒会阻断媒体键与日历自动化）。运行后请在「系统设置 → 隐私与安全性」依次授予：
 
-| 权限 | 用途 | 触发时机 |
-|---|---|---|
-| **辅助功能 (Accessibility)** | CGEvent 合成媒体键控制 QQ 音乐 | 首次启动弹引导窗 |
-| **完全日历访问** | EventKit 读取 Google 日历会议 | 首次启动请求 |
-| **自动化 (Automation)** | 仅当未来启用 AppleScript 回退时 | 按需 |
+| 权限                         | 用途                            | 触发时机         |
+| ---------------------------- | ------------------------------- | ---------------- |
+| **辅助功能 (Accessibility)** | CGEvent 合成媒体键控制 QQ 音乐  | 首次启动弹引导窗 |
+| **完全日历访问**             | EventKit 读取 Google 日历会议   | 首次启动请求     |
+| **自动化 (Automation)**      | 仅当未来启用 AppleScript 回退时 | 按需             |
 
 > Agent 不得绕过任何权限授予——均由用户在系统设置完成（同构于 [浏览器验证协议](./.agents/browser-validation.md) 的登录态红线）。
 
@@ -181,6 +186,12 @@ dotnet publish windows/GiveMeABreakShell/GiveMeABreakShell.csproj -c Release -r 
 
 配置文件：`%APPDATA%\com.aurelius.givemeabreak\`（与 macOS 同 schema）。**真机验收限制**：托盘图标、粉噪音出声、QQ 音乐联动、全屏遮罩覆盖/键盘拦截需在 Windows 真机验收（CI 无 explorer shell/音频设备/QQ 音乐/桌面会话）；CI 验证接入闭环与不崩。
 
+---
+
+<div align="center">
+
 ## License
 
-MIT © Aurelius Huang
+MIT © [ThreeFish-AI](https://github.com/ThreeFish-AI)
+
+</div>

@@ -4,6 +4,13 @@
 
 ## Unreleased
 
+### 新增
+
+- **工作日志小结等待时长可配置**：设置 →「工作日志」新增等待时长控制。原硬编码 60s 自动放行改为可配置（默认 **3 分钟**）；新增「永久等待」开关——开启后小结窗不自动跳过、不自动进入休息，须手动「记录并休息」/「跳过」/关闭窗口；关闭整个环节仍由既有开关承担（直接进入休息）。
+  - 永久模式安全性：提示窗红色关闭按钮经 `NSWindowDelegate.windowWillClose` 等同「跳过」，保证始终有手动出口；系统唤醒时若小结窗仍开启则不抢恢复心跳，避免延迟休息被静默判定结束（`suspend`/`resume` 严格配对）。
+  - 配置 schema 升级 `schemaVersion` 3 → 4：`DayPlanConfig` 新增 `workLogPromptTimeoutSeconds`（默认 `180`，哨兵 `0`=永久等待），容错解码保证旧配置平滑迁移；[shared/config.schema.json](./shared/config.schema.json) 同步。
+  - 单测 47 → 50（新增等待时长 round-trip、永久哨兵 0 保留、v3→v4 迁移补默认 3 例，既有零回归）。
+
 ## v0.1.1 — 2026-06-26
 
 ### 新增

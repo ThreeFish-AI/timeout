@@ -4,22 +4,29 @@ import SwiftUI
 /// 休息前工作日志提示窗口控制器：NSWindow + NSHostingController（同 SettingsWindowController 范式）。
 ///
 /// 关键：窗口在遮罩**之前**渲染（普通层级 `.floating`），规避 issue #6「对话框被 CGShieldingWindowLevel
-/// 遮罩遮挡」陷阱。永不阻塞休息：60s 硬超时自动跳过（DispatchSource 计时器，独立于被冻结的引擎心跳）。
-final class WorkLogPromptWindowController {
+/// 遮罩遮挡」陷阱。超时可配置（`config.workLogPromptTimeoutSeconds`）：>0 则到点自动跳过（绝不卡住休息），
+/// `0` 则永久等待——不调度定时器，须用户手动操作（提交/跳过/关窗）。计时器为 DispatchSource，独立于被冻结的引擎心跳。
+/// 作为 `NSWindowDelegate`：红色关闭按钮（`windowWillClose`）等同「跳过」，保证永久等待下也有安全出口。
+final class WorkLogPromptWindowController: NSObject, NSWindowDelegate {
     private var window: NSWindow?
-    /// 超时计时器（60s 自动放行）。独立于引擎心跳——心跳此时已 suspend。
+    /// 超时计时器（到点自动放行）。永久等待（timeout≤0）时不调度。独立于引擎心跳——心跳此时已 suspend。
     private var timeoutTimer: DispatchSourceTimer?
     /// 占位示例轮换索引（跨会话递增，对抗提示疲劳）。
     private var seedIndex: Int = 0
     /// 防重入：提示进行中不再 present。
     private var presenting = false
-    /// 当前轮次回调（present 注入；submit/skip/超时三路统一经由 finish 触发，回调只跑一次）。
+    /// 提示窗是否正在展示（AppRoot 据此在系统唤醒时避免抢恢复心跳，防延迟休息被静默判定结束）。
+    var isPresenting: Bool { presenting }
+    /// 当前轮次回调（present 注入；submit/skip/超时/关窗多路统一经由 finish 触发，回调只跑一次）。
     private var onSubmit: ((String, String?) -> Void)?
     private var onSkip: (() -> Void)?
 
+    override init() { super.init() }
+
     /// 弹出提示。`onSubmit`/`onSkip` 由 AppRoot 提供：前者落库 + completeDeferredRest，后者直接放行。
-    /// 两条路径都必最终进入休息（绝不卡住）。
+    /// 两条路径都必最终进入休息（绝不卡住）。`timeoutSeconds`：>0 自动放行等待秒数，`0` 永久等待。
     func present(workDurationSeconds: TimeInterval,
+                 timeoutSeconds: TimeInterval,
                  onSubmit: @escaping (String, String?) -> Void,
                  onSkip: @escaping () -> Void) {
         guard !presenting else { return }
@@ -42,6 +49,7 @@ final class WorkLogPromptWindowController {
             w.styleMask = [.titled, .closable]
             w.isReleasedWhenClosed = false
             w.level = .floating
+            w.delegate = self  // 红色关闭按钮经 windowWillClose 等同「跳过」
             w.setContentSize(NSSize(width: 440, height: 300))
             window = w
         } else {
@@ -52,25 +60,35 @@ final class WorkLogPromptWindowController {
         NSApp.activate(ignoringOtherApps: true)
         window?.makeKeyAndOrderFront(nil)
         window?.orderFrontRegardless()
-        startTimeout()
+        startTimeout(after: timeoutSeconds)
     }
 
-    // MARK: - 提交 / 跳过 / 超时（三路合一）
+    // MARK: - 提交 / 跳过 / 超时 / 关窗（多路合一，guard presenting 幂等防二次回调）
 
     private func submit(summary: String, nextAction: String?) {
+        guard presenting else { return }
         finish { self.onSubmit?(summary, nextAction) }
     }
 
     private func skip() {
+        guard presenting else { return }
         finish { self.onSkip?() }
     }
 
-    private func startTimeout() {
+    /// 红色关闭按钮 = 跳过（保证永久等待下也有安全出口）。
+    /// `finish` 用 `orderOut` 而非 `close`，故提交/跳过/超时三路不会回调本方法，无递归。
+    func windowWillClose(_ notification: Notification) {
+        skip()
+    }
+
+    /// `seconds > 0`：到点自动跳过；`seconds <= 0`：永久等待，不调度定时器。
+    private func startTimeout(after seconds: TimeInterval) {
         cancelTimeout()
+        guard seconds > 0 else { return }  // 永久等待：无超时
         let timer = DispatchSource.makeTimerSource(queue: .main)
-        timer.schedule(deadline: .now() + 60)
+        timer.schedule(deadline: .now() + seconds)
         timer.setEventHandler { [weak self] in
-            // 60s 自动跳过：等同用户点「跳过」，确保「绝不卡住休息」。
+            // 到点自动跳过：等同用户点「跳过」，确保「绝不卡住休息」。
             self?.skip()
         }
         timer.resume()

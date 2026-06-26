@@ -85,6 +85,7 @@ func runConfigStoreCases() {
         var json = try! JSONSerialization.jsonObject(with: Data(contentsOf: cfgURL)) as! [String: Any]
         json.removeValue(forKey: "ambientSoundEnabled")   // 模拟旧版缺失
         json.removeValue(forKey: "controlQQMusic")
+        json.removeValue(forKey: "workLogPromptTimeoutSeconds")  // v4 新增字段，旧版无
         json["schemaVersion"] = 1
         let rewritten = try! JSONSerialization.data(withJSONObject: json, options: [.prettyPrinted])
         try! rewritten.write(to: cfgURL)
@@ -97,5 +98,53 @@ func runConfigStoreCases() {
         expectEqual(loaded.ambientSoundEnabled, true, "缺失的 ambientSoundEnabled 应补默认 true")
         expectEqual(loaded.controlQQMusic, true, "缺失的 controlQQMusic 应补默认 true")
         expectEqual(loaded.workLogEnabled, true, "缺失的 workLogEnabled（v3 新增）应补默认 true")
+        expectEqual(loaded.workLogPromptTimeoutSeconds, 180, "缺失的 workLogPromptTimeoutSeconds（v4 新增）应补默认 180")
+    }
+
+    test("workLogPromptTimeoutSeconds round-trip：自定义有限时长") {
+        let store = try! ConfigStore(directory: makeTempDir())
+        var config = DayPlanConfig.defaultConfig
+        config.workLogPromptTimeoutSeconds = 300  // 5 分钟
+        try! store.saveConfig(config)
+        expectEqual(store.loadConfig().workLogPromptTimeoutSeconds, 300, "自定义等待时长应原样读回")
+    }
+
+    test("workLogPromptTimeoutSeconds 哨兵 0（永久等待）显式存在时不被误补默认") {
+        let store = try! ConfigStore(directory: makeTempDir())
+        var config = DayPlanConfig.defaultConfig
+        config.workLogPromptTimeoutSeconds = 0  // 永久等待
+        try! store.saveConfig(config)
+        // 显式 0 非 nil，decodeIfPresent 应保留，不得回退 180（钉死永久等待语义，防回归）
+        expectEqual(store.loadConfig().workLogPromptTimeoutSeconds, 0, "显式 0（永久等待）必须严格保留，不被默认 180 覆盖")
+    }
+
+    test("schema 迁移：旧 v3 config 缺 workLogPromptTimeoutSeconds → 升 v4 补默认 180，旧字段保留") {
+        let dir = makeTempDir()
+        let store = try! ConfigStore(directory: dir)
+        let seed = DayPlanConfig(
+            schemaVersion: 3,
+            workWindows: [WorkWindow(start: TimeOfDay(hours: 8), end: TimeOfDay(hours: 12))],
+            workIntervalSeconds: 3000,
+            restDurationSeconds: 600,
+            afkThresholdSeconds: 180,
+            ambientSoundEnabled: false,
+            controlQQMusic: false,
+            workLogEnabled: false,
+            workLogPromptTimeoutSeconds: 240
+        )
+        try! store.saveConfig(seed)
+        let cfgURL = dir.appendingPathComponent("config.json")
+        var json = try! JSONSerialization.jsonObject(with: Data(contentsOf: cfgURL)) as! [String: Any]
+        json.removeValue(forKey: "workLogPromptTimeoutSeconds")  // 模拟 v3 旧配置无此字段
+        json["schemaVersion"] = 3
+        let rewritten = try! JSONSerialization.data(withJSONObject: json, options: [.prettyPrinted])
+        try! rewritten.write(to: cfgURL)
+
+        let loaded = store.loadConfig()
+        expectEqual(loaded.schemaVersion, DayPlanConfig.currentSchemaVersion, "v3→v4 版本号应规范化")
+        expectEqual(loaded.workLogPromptTimeoutSeconds, 180, "缺失的 workLogPromptTimeoutSeconds 应补默认 180")
+        expectEqual(loaded.workLogEnabled, false, "原 workLogEnabled=false 应保留")
+        expectEqual(loaded.ambientSoundEnabled, false, "原 ambientSoundEnabled=false 应保留")
+        expectEqual(loaded.workWindows.count, 1, "原工作窗口应保留")
     }
 }

@@ -174,6 +174,7 @@ final public class AppRoot {
         heartbeat?.suspend()
         prompt.present(
             workDurationSeconds: ctx.workAccumulatedSeconds,
+            timeoutSeconds: engine?.config.workLogPromptTimeoutSeconds ?? 180,  // 0=永久等待，控制器不调度超时
             onSubmit: { [weak self] summary, nextAction in
                 store.append(WorkLogEntry(
                     startedAt: ctx.approxPeriodStartedAt,
@@ -189,7 +190,7 @@ final public class AppRoot {
         )
     }
 
-    /// 提示结束（提交/跳过/60s 超时统一）：落 bookkeeping + rebase 进休息 + 恢复心跳。
+    /// 提示结束（提交/跳过/超时/关窗统一）：落 bookkeeping + rebase 进休息 + 恢复心跳。
     private func afterPrompt(submitted: Bool) {
         if submitted { consecutiveSkips = 0 } else { consecutiveSkips += 1 }
         engine?.completeDeferredRest(now: Date())
@@ -253,10 +254,15 @@ final public class AppRoot {
             NSLog("[GiveMeABreak] 系统睡眠：挂起心跳")
         }
         let did = nc.addObserver(forName: NSWorkspace.didWakeNotification, object: nil, queue: .main) { [weak self] _ in
-            self?.sensors?.isAsleep = false
-            self?.heartbeat?.resume()
-            self?.engine?.handleWake()
-            NSLog("[GiveMeABreak] 系统唤醒：恢复心跳 + 重置对账基点")
+            guard let self else { return }
+            self.sensors?.isAsleep = false
+            // 小结窗仍开启（含永久等待）时不抢恢复心跳：否则唤醒后引擎抢先 tick 会把这次延迟休息
+            // 静默判定为「已结束」。心跳由提示窗收尾的 afterPrompt 负责恢复，suspend/resume 严格配对。
+            if self.workLogPromptController?.isPresenting != true {
+                self.heartbeat?.resume()
+            }
+            self.engine?.handleWake()
+            NSLog("[GiveMeABreak] 系统唤醒：重置对账基点\(self.workLogPromptController?.isPresenting == true ? "（小结窗开启，心跳保持挂起）" : " + 恢复心跳")")
         }
         sleepObservers = [will, did]
     }

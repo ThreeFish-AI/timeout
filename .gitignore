@@ -13,6 +13,7 @@ config.local.yaml
 .claude/
 /assets/
 .mcp.json
+.idea/
 
 # Swift / SPM / Xcode
 .build/

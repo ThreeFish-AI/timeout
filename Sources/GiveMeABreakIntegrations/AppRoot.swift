@@ -128,6 +128,10 @@ final public class AppRoot {
         if ProcessInfo.processInfo.environment["GIVEMEABREAK_SHOW_SETTINGS"] != nil {
             openSettings()
         }
+        // 调试：启动即打开工作日志窗（便于截图验证阅读器；可配合 GIVEMEABREAK_WORKLOG_SCOPE=today|week|month|all）
+        if ProcessInfo.processInfo.environment["GIVEMEABREAK_SHOW_WORKLOG"] != nil {
+            openWorkLog()
+        }
     }
 
     /// 应用退出前落盘最终状态。

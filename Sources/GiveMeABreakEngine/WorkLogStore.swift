@@ -45,6 +45,26 @@ public final class WorkLogStore {
         saveAll(entries.sorted { $0.startedAt < $1.startedAt })
     }
 
+    /// 按 `id` 原地更新一条记录（读-改-写，原子落盘，重排升序）。未命中 id → no-op（防御，不抛错）。
+    public func update(_ entry: WorkLogEntry) {
+        var entries = loadEntries()
+        guard let idx = entries.firstIndex(where: { $0.id == entry.id }) else {
+            NSLog("[GiveMeABreak][worklog] update 未命中 id=\(entry.id)，忽略")
+            return
+        }
+        entries[idx] = entry
+        saveAll(entries.sorted { $0.startedAt < $1.startedAt })
+    }
+
+    /// 按 `id` 删除一条记录（读-改-写，原子落盘）。删不存在的 id → 列表不变。
+    public func delete(id: String) {
+        var entries = loadEntries()
+        let before = entries.count
+        entries.removeAll { $0.id == id }
+        guard entries.count != before else { return }
+        saveAll(entries)
+    }
+
     // MARK: - Private
 
     private func saveAll(_ entries: [WorkLogEntry]) {

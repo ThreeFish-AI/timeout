@@ -42,6 +42,146 @@ public func filterWorkLogEntries(
     }.sorted { $0.startedAt < $1.startedAt }
 }
 
+// MARK: - 结构化报告模型（单一事实源：聚合逻辑只此一处）
+//
+// 同一模型由两个渲染器消费：`renderWorkLogReport` 序列化为导出 Markdown 字符串；
+// `WorkLogReportView`（UI 层）原生渲染为层级化阅读器。明细分组携带原始 `WorkLogEntry`（含 id），
+// 使阅读器的逐条编辑/删除可精确定位记录。聚合行（Top 3 / 按月汇总）为派生统计，不可逆编辑。
+
+/// 「按日」分组（周报用）。
+public struct WorkLogDayGroup: Equatable, Sendable {
+    public let dayKey: String          // "2026-06-22"
+    public let weekday: String         // "周一"
+    public let totalSeconds: TimeInterval
+    public let entries: [WorkLogEntry] // 组内按 startedAt 升序
+    public init(dayKey: String, weekday: String, totalSeconds: TimeInterval, entries: [WorkLogEntry]) {
+        self.dayKey = dayKey; self.weekday = weekday; self.totalSeconds = totalSeconds; self.entries = entries
+    }
+}
+
+/// 「按周」分组（月报用）。
+public struct WorkLogWeekGroup: Equatable, Sendable {
+    public let weekKey: String         // "2026-W23"
+    public let count: Int
+    public let totalSeconds: TimeInterval
+    public let entries: [WorkLogEntry] // 组内按 startedAt 升序
+    public init(weekKey: String, count: Int, totalSeconds: TimeInterval, entries: [WorkLogEntry]) {
+        self.weekKey = weekKey; self.count = count; self.totalSeconds = totalSeconds; self.entries = entries
+    }
+}
+
+/// 「按月汇总」行（全部记录用，纯聚合统计，无逐条 entry）。
+public struct WorkLogMonthSummary: Equatable, Sendable {
+    public let monthKey: String        // "2026-06"
+    public let count: Int
+    public let totalSeconds: TimeInterval
+    public init(monthKey: String, count: Int, totalSeconds: TimeInterval) {
+        self.monthKey = monthKey; self.count = count; self.totalSeconds = totalSeconds
+    }
+}
+
+/// 周期专属明细：今日=完成清单；本周=按日；本月=按周；全部=按月汇总表。
+public enum WorkLogReportDetail: Equatable, Sendable {
+    case completion([WorkLogEntry])    // today：逐条（可编辑/删除）
+    case byDay([WorkLogDayGroup])      // week
+    case byWeek([WorkLogWeekGroup])    // month
+    case byMonth([WorkLogMonthSummary]) // all：聚合表
+}
+
+/// 结构化工作日志报告模型（纯数据、确定性、可单测）。
+public struct WorkLogReportModel: Equatable, Sendable {
+    public let scope: WorkLogReportScope
+    public let title: String           // 纯文本标题（无 "# " 前缀），如「今日工作回顾 · 2026-06-25 周四」
+    public let meta: String            // 纯文本元数据（无 "> " 前缀），如「周期 2026-06-25（GMT） · 2 条记录 · 专注 1h 40m」
+    public let isEmpty: Bool
+    public let topThreeTitle: String   // 「今日 Top 3」/「本周三件事」/…
+    public let topThree: [WorkLogEntry] // 已按时长降序（并列时间升序）取前 3
+    public let detail: WorkLogReportDetail
+    public let nextActions: [String]   // 按 scoped 时间升序提取的非空 nextAction
+
+    public init(scope: WorkLogReportScope, title: String, meta: String, isEmpty: Bool,
+                topThreeTitle: String, topThree: [WorkLogEntry],
+                detail: WorkLogReportDetail, nextActions: [String]) {
+        self.scope = scope; self.title = title; self.meta = meta; self.isEmpty = isEmpty
+        self.topThreeTitle = topThreeTitle; self.topThree = topThree
+        self.detail = detail; self.nextActions = nextActions
+    }
+}
+
+/// 构建结构化报告模型（确定性幂等）：所有过滤/分组/排序/统计逻辑的唯一来源。
+public func buildWorkLogReportModel(
+    entries: [WorkLogEntry],
+    scope: WorkLogReportScope,
+    now: Date,
+    calendar: Calendar,
+    timeZone: TimeZone
+) -> WorkLogReportModel {
+    let cal = isoCalendar(base: calendar, timeZone: timeZone)
+    let scoped = filterWorkLogEntries(entries, scope: scope, now: now, calendar: calendar, timeZone: timeZone)
+    let tz = timeZoneIdentifier(timeZone)
+
+    let title = reportTitleText(scope: scope, now: now, calendar: cal)
+    let meta = metaText(scope: scope, entries: scoped, now: now, calendar: cal, timeZone: tz)
+    let top3Title = topThreeTitle(scope: scope)
+
+    if scoped.isEmpty {
+        return WorkLogReportModel(scope: scope, title: title, meta: meta, isEmpty: true,
+                                  topThreeTitle: top3Title, topThree: [],
+                                  detail: emptyDetail(for: scope), nextActions: [])
+    }
+
+    // Top 3（按时长降序，并列按时间升序）
+    let topThree = Array(scoped.sorted { lhs, rhs in
+        lhs.durationSeconds != rhs.durationSeconds
+            ? lhs.durationSeconds > rhs.durationSeconds
+            : lhs.startedAt < rhs.startedAt
+    }.prefix(3))
+
+    let detail: WorkLogReportDetail
+    switch scope {
+    case .today:
+        detail = .completion(scoped)
+    case .week:
+        detail = .byDay(groupByDay(scoped, calendar: cal).map { key, list in
+            WorkLogDayGroup(dayKey: key,
+                            weekday: weekdayCN(list.first!.startedAt, calendar: cal),
+                            totalSeconds: totalSeconds(list),
+                            entries: list)
+        })
+    case .month:
+        detail = .byWeek(groupByWeek(scoped, calendar: cal).map { key, list in
+            WorkLogWeekGroup(weekKey: key, count: list.count,
+                             totalSeconds: totalSeconds(list), entries: list)
+        })
+    case .all:
+        detail = .byMonth(groupByMonth(scoped, calendar: cal).map { key, list in
+            WorkLogMonthSummary(monthKey: key, count: list.count, totalSeconds: totalSeconds(list))
+        })
+    }
+
+    let nextActions = scoped.compactMap { $0.nextAction }
+
+    return WorkLogReportModel(scope: scope, title: title, meta: meta, isEmpty: false,
+                              topThreeTitle: top3Title, topThree: topThree,
+                              detail: detail, nextActions: nextActions)
+}
+
+/// 空 scoped 时的明细占位容器（与 scope 对应；不会被序列化/渲染，仅满足模型完整性）。
+private func emptyDetail(for scope: WorkLogReportScope) -> WorkLogReportDetail {
+    switch scope {
+    case .today: return .completion([])
+    case .week:  return .byDay([])
+    case .month: return .byWeek([])
+    case .all:   return .byMonth([])
+    }
+}
+
+private func totalSeconds(_ entries: [WorkLogEntry]) -> TimeInterval {
+    entries.reduce(0) { $0 + $1.durationSeconds }
+}
+
+// MARK: - Markdown 序列化（消费模型 → 字符串；与历史产物逐字节一致，golden 快照守护）
+
 /// 渲染 Markdown 报告（确定性幂等：同 entries + 同 now/cal/tz → 字节一致）。
 /// 结构：恰好一个 H1（标题+周期）+ blockquote 元数据 + 周期专属章节（Top 3 / 按日或按周拆解 / 待续·下一步）。
 public func renderWorkLogReport(
@@ -51,121 +191,71 @@ public func renderWorkLogReport(
     calendar: Calendar,
     timeZone: TimeZone
 ) -> String {
-    let cal = isoCalendar(base: calendar, timeZone: timeZone)
-    let scoped = filterWorkLogEntries(entries, scope: scope, now: now, calendar: calendar, timeZone: timeZone)
-    let tz = timeZoneIdentifier(timeZone)
+    let model = buildWorkLogReportModel(entries: entries, scope: scope, now: now, calendar: calendar, timeZone: timeZone)
+    let cal = isoCalendar(base: calendar, timeZone: timeZone)  // hhmm 用 ISO 周历（与历史一致）
 
     var out = ""
-    out += reportTitle(scope: scope, now: now, calendar: cal) + "\n\n"
-    out += metaBlock(scope: scope, entries: scoped, now: now, calendar: cal, timeZone: tz) + "\n"
+    out += "# " + model.title + "\n\n"
+    out += "> " + model.meta + "\n\n"
 
-    if scoped.isEmpty {
+    if model.isEmpty {
         out += "\n_（暂无记录）_\n"
         return out
     }
 
-    // Top 3（按时长降序，并列按时间升序）
-    out += topThreeSection(title: topThreeTitle(scope: scope), entries: scoped)
-
-    // 按日/按周拆解
-    switch scope {
-    case .today, .all:
-        break  // today 的明细见「完成清单」；all 见「按月汇总」
-    case .week:
-        out += byDaySection(entries: scoped, calendar: cal)
-    case .month:
-        out += byWeekSection(entries: scoped, calendar: cal)
+    // Top 3
+    out += "## \(model.topThreeTitle)\n\n"
+    if model.topThree.isEmpty {
+        out += "_（暂无）_\n\n"
+    } else {
+        for e in model.topThree {
+            out += "- \(e.summary)（\(humanizedDuration(e.durationSeconds))）\n"
+        }
+        out += "\n"
     }
 
-    // 明细 / 汇总表
-    switch scope {
-    case .today:
-        out += todayDetailSection(entries: scoped, calendar: cal)
-    case .all:
-        out += byMonthSummaryTable(entries: scoped, calendar: cal)
-    default:
-        break
-    }
+    // 周期专属明细（today=完成清单 / week=按日 / month=按周 / all=按月汇总表）
+    out += serializeDetail(model.detail, calendar: cal)
 
     // 待续 · 下一步
-    out += nextActionsSection(entries: scoped)
+    if !model.nextActions.isEmpty {
+        out += "## 待续 · 下一步\n\n"
+        for a in model.nextActions { out += "- \(a)\n" }
+        out += "\n"
+    }
     return out
 }
 
-// MARK: - 章节渲染
-
-private func topThreeSection(title: String, entries: [WorkLogEntry]) -> String {
-    let top = entries
-        .sorted { lhs, rhs in
-            lhs.durationSeconds != rhs.durationSeconds
-                ? lhs.durationSeconds > rhs.durationSeconds
-                : lhs.startedAt < rhs.startedAt
+private func serializeDetail(_ detail: WorkLogReportDetail, calendar: Calendar) -> String {
+    switch detail {
+    case .completion(let entries):
+        return "## 完成清单\n\n" + entryBullets(entries, calendar: calendar) + "\n"
+    case .byDay(let groups):
+        var s = "## 按日拆解\n\n"
+        for g in groups {
+            s += "### \(g.dayKey) \(g.weekday) · \(humanizedDuration(g.totalSeconds))\n\n"
+            s += entryBullets(g.entries, calendar: calendar)
+            s += "\n"
         }
-        .prefix(3)
-    var s = "## \(title)\n\n"
-    if top.isEmpty {
-        s += "_（暂无）_\n\n"
+        return s
+    case .byWeek(let groups):
+        var s = "## 按周拆解\n\n"
+        for g in groups {
+            s += "### \(g.weekKey) · \(g.count) 条 · \(humanizedDuration(g.totalSeconds))\n\n"
+            s += entryBullets(g.entries, calendar: calendar)
+            s += "\n"
+        }
+        return s
+    case .byMonth(let rows):
+        var s = "## 按月汇总\n\n"
+        s += "| 月份 | 条数 | 专注 |\n"
+        s += "|---|---:|---:|\n"
+        for r in rows {
+            s += "| \(r.monthKey) | \(r.count) | \(humanizedDuration(r.totalSeconds)) |\n"
+        }
+        s += "\n"
         return s
     }
-    for e in top {
-        s += "- \(e.summary)（\(humanizedDuration(e.durationSeconds))）\n"
-    }
-    s += "\n"
-    return s
-}
-
-private func byDaySection(entries: [WorkLogEntry], calendar: Calendar) -> String {
-    let groups = groupByDay(entries, calendar: calendar)  // [(dayKey, [entries])] 升序
-    var s = "## 按日拆解\n\n"
-    for (key, list) in groups {
-        let total = list.reduce(0) { $0 + $1.durationSeconds }
-        let wd = list.first!.startedAt
-        s += "### \(key) \(weekdayCN(wd, calendar: calendar)) · \(humanizedDuration(total))\n\n"
-        s += entryBullets(list, calendar: calendar)
-        s += "\n"
-    }
-    return s
-}
-
-private func byWeekSection(entries: [WorkLogEntry], calendar: Calendar) -> String {
-    let groups = groupByWeek(entries, calendar: calendar)  // [(weekKey, [entries])] 升序
-    var s = "## 按周拆解\n\n"
-    for (key, list) in groups {
-        let total = list.reduce(0) { $0 + $1.durationSeconds }
-        s += "### \(key) · \(list.count) 条 · \(humanizedDuration(total))\n\n"
-        s += entryBullets(list, calendar: calendar)
-        s += "\n"
-    }
-    return s
-}
-
-private func todayDetailSection(entries: [WorkLogEntry], calendar: Calendar) -> String {
-    var s = "## 完成清单\n\n"
-    s += entryBullets(entries, calendar: calendar)
-    s += "\n"
-    return s
-}
-
-private func byMonthSummaryTable(entries: [WorkLogEntry], calendar: Calendar) -> String {
-    let groups = groupByMonth(entries, calendar: calendar)  // 升序
-    var s = "## 按月汇总\n\n"
-    s += "| 月份 | 条数 | 专注 |\n"
-    s += "|---|---:|---:|\n"
-    for (key, list) in groups {
-        let total = list.reduce(0) { $0 + $1.durationSeconds }
-        s += "| \(key) | \(list.count) | \(humanizedDuration(total)) |\n"
-    }
-    s += "\n"
-    return s
-}
-
-private func nextActionsSection(entries: [WorkLogEntry]) -> String {
-    let actions = entries.compactMap { $0.nextAction }
-    guard !actions.isEmpty else { return "" }
-    var s = "## 待续 · 下一步\n\n"
-    for a in actions { s += "- \(a)\n" }
-    s += "\n"
-    return s
 }
 
 /// 单条记录的 Markdown 项目符号（时间序）：`- **HH:mm** · {时长} — {summary}`，nextAction 以引用块附。
@@ -180,37 +270,37 @@ private func entryBullets(_ entries: [WorkLogEntry], calendar: Calendar) -> Stri
     return s
 }
 
-// MARK: - 标题 / 元数据块
+// MARK: - 标题 / 元数据（纯文本，无 Markdown 前缀；供模型与序列化器共用）
 
-private func reportTitle(scope: WorkLogReportScope, now: Date, calendar: Calendar) -> String {
+private func reportTitleText(scope: WorkLogReportScope, now: Date, calendar: Calendar) -> String {
     switch scope {
     case .today:
-        return "# 今日工作回顾 · \(dayKey(now, calendar: calendar)) \(weekdayCN(now, calendar: calendar))"
+        return "今日工作回顾 · \(dayKey(now, calendar: calendar)) \(weekdayCN(now, calendar: calendar))"
     case .week:
-        return "# 本周工作回顾 · \(weekKey(now, calendar: calendar))"
+        return "本周工作回顾 · \(weekKey(now, calendar: calendar))"
     case .month:
-        return "# 本月工作回顾 · \(monthKey(now, calendar: calendar))"
+        return "本月工作回顾 · \(monthKey(now, calendar: calendar))"
     case .all:
-        return "# 工作日志 · 全部记录"
+        return "工作日志 · 全部记录"
     }
 }
 
-private func metaBlock(scope: WorkLogReportScope, entries: [WorkLogEntry], now: Date, calendar: Calendar, timeZone: String) -> String {
+private func metaText(scope: WorkLogReportScope, entries: [WorkLogEntry], now: Date, calendar: Calendar, timeZone: String) -> String {
     let count = entries.count
-    let total = entries.reduce(0) { $0 + $1.durationSeconds }
+    let total = totalSeconds(entries)
     let days = Set(entries.map { dayKey($0.startedAt, calendar: calendar) }).count
     switch scope {
     case .today:
-        return "> 周期 \(dayKey(now, calendar: calendar))（\(timeZone)） · \(count) 条记录 · 专注 \(humanizedDuration(total))\n"
+        return "周期 \(dayKey(now, calendar: calendar))（\(timeZone)） · \(count) 条记录 · 专注 \(humanizedDuration(total))"
     case .week:
-        return "> 周期 \(weekKey(now, calendar: calendar))（\(timeZone)） · \(count) 条 · 专注 \(humanizedDuration(total)) · \(days) 天\n"
+        return "周期 \(weekKey(now, calendar: calendar))（\(timeZone)） · \(count) 条 · 专注 \(humanizedDuration(total)) · \(days) 天"
     case .month:
-        return "> 周期 \(monthKey(now, calendar: calendar))（\(timeZone)） · \(count) 条 · 专注 \(humanizedDuration(total)) · \(days) 天\n"
+        return "周期 \(monthKey(now, calendar: calendar))（\(timeZone)） · \(count) 条 · 专注 \(humanizedDuration(total)) · \(days) 天"
     case .all:
         if let earliest = entries.map(\.startedAt).min(), let latest = entries.map(\.startedAt).max() {
-            return "> \(timeZone) · \(count) 条 · 专注 \(humanizedDuration(total)) · \(days) 天 · 自 \(dayKey(earliest, calendar: calendar)) 至 \(dayKey(latest, calendar: calendar))\n"
+            return "\(timeZone) · \(count) 条 · 专注 \(humanizedDuration(total)) · \(days) 天 · 自 \(dayKey(earliest, calendar: calendar)) 至 \(dayKey(latest, calendar: calendar))"
         }
-        return "> \(timeZone) · 0 条 · 专注 0m\n"
+        return "\(timeZone) · 0 条 · 专注 0m"
     }
 }
 

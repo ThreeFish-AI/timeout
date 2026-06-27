@@ -30,7 +30,9 @@ let package = Package(
         .executableTarget(
             name: "GiveMeABreakTests",
             dependencies: ["GiveMeABreakEngine"],
-            path: "tests"
+            path: "tests",
+            // golden 快照夹具经 #filePath 直接读盘（非 Bundle 资源），从编译目标中排除以免 SPM 告警。
+            exclude: ["fixtures"]
         ),
     ]
 )

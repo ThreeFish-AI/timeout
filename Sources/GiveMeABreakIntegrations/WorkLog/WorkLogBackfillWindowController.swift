@@ -16,9 +16,8 @@ final class WorkLogBackfillWindowController {
 
     /// 弹出补录窗。`defaultStart`：建议起始（通常为上一条日志的 `endedAt`，或默认 50 分钟前）。
     func show(defaultStart: Date) {
-        let view = WorkLogBackfillView(
-            defaultStart: defaultStart,
-            defaultEnd: Date(),
+        let view = WorkLogEntryFormView(
+            mode: .create(defaultStart: defaultStart, defaultEnd: Date()),
             onSubmit: { [weak self] entry in
                 self?.onSave(entry)
                 self?.window?.close()
@@ -33,10 +32,10 @@ final class WorkLogBackfillWindowController {
             w.styleMask = [.titled, .closable]
             w.isReleasedWhenClosed = false
             w.level = .floating
-            w.setContentSize(NSSize(width: 440, height: 420))
+            w.setContentSize(NSSize(width: 440, height: 470))
             window = w
         } else {
-            (window?.contentViewController as? NSHostingController<WorkLogBackfillView>)?.rootView = view
+            (window?.contentViewController as? NSHostingController<WorkLogEntryFormView>)?.rootView = view
         }
 
         centerOnMainScreen()

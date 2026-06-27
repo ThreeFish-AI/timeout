@@ -22,3 +22,6 @@ exclude = [
 
 # 失败也输出友好摘要。
 no_progress = true
+
+# 排除测试黄金快照（tests/fixtures/**）：为字节级回归保留渲染器原样输出的测试夹具，非文档、无需链接校验。
+exclude_path = ["tests/fixtures"]

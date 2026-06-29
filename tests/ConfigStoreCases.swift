@@ -191,4 +191,44 @@ func runConfigStoreCases() {
         expectEqual(loaded.workLogPromptTimeoutSeconds, 240, "原 workLogPromptTimeoutSeconds 应保留")
         expectEqual(loaded.workWindows.count, 1, "原工作窗口应保留")
     }
+
+    test("exerciseLogEnabled round-trip：自定义关闭值原样读回") {
+        let store = try! ConfigStore(directory: makeTempDir())
+        var config = DayPlanConfig.defaultConfig
+        config.exerciseLogEnabled = false
+        try! store.saveConfig(config)
+        expectEqual(store.loadConfig().exerciseLogEnabled, false, "原 exerciseLogEnabled=false 应保留")
+    }
+
+    test("schema 迁移：旧 v5 config 缺 exerciseLogEnabled → 升 v6 补默认 true，旧字段保留") {
+        let dir = makeTempDir()
+        let store = try! ConfigStore(directory: dir)
+        let seed = DayPlanConfig(
+            schemaVersion: 5,
+            workWindows: [WorkWindow(start: TimeOfDay(hours: 9), end: TimeOfDay(hours: 12))],
+            workIntervalSeconds: 3000,
+            restDurationSeconds: 600,
+            afkThresholdSeconds: 180,
+            ambientSoundEnabled: true,
+            controlQQMusic: false,
+            workLogEnabled: false,
+            workLogPromptTimeoutSeconds: 240,
+            restMusicPath: "/tmp/a.mp3"
+            // exerciseLogEnabled 不传（v6 新增，模拟旧 v5 配置）
+        )
+        try! store.saveConfig(seed)
+        let cfgURL = dir.appendingPathComponent("config.json")
+        var json = try! JSONSerialization.jsonObject(with: Data(contentsOf: cfgURL)) as! [String: Any]
+        json.removeValue(forKey: "exerciseLogEnabled")  // 确保 v5 旧配置无此字段
+        json["schemaVersion"] = 5
+        let rewritten = try! JSONSerialization.data(withJSONObject: json, options: [.prettyPrinted])
+        try! rewritten.write(to: cfgURL)
+
+        let loaded = store.loadConfig()
+        expectEqual(loaded.schemaVersion, DayPlanConfig.currentSchemaVersion, "v5→v6 版本号应规范化")
+        expectEqual(loaded.exerciseLogEnabled, true, "缺失的 exerciseLogEnabled 应补默认 true")
+        expectEqual(loaded.workLogEnabled, false, "原 workLogEnabled=false 应保留")
+        expectEqual(loaded.controlQQMusic, false, "原 controlQQMusic=false 应保留")
+        expectEqual(loaded.restMusicPath, "/tmp/a.mp3", "原 restMusicPath 应保留")
+    }
 }

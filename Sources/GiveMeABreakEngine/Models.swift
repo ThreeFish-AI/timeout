@@ -50,7 +50,7 @@ public struct WorkWindow: Codable, Equatable, Hashable, Sendable {
 // MARK: - 一日计划配置
 
 public struct DayPlanConfig: Codable, Equatable, Sendable {
-    public static let currentSchemaVersion = 5
+    public static let currentSchemaVersion = 6
 
     public var schemaVersion: Int
     public var workWindows: [WorkWindow]
@@ -72,6 +72,9 @@ public struct DayPlanConfig: Codable, Equatable, Sendable {
     /// 哨兵值 `0` 表示「永久等待」——不自动跳过、不自动进入休息，须用户手动操作（提交/跳过/关窗）。
     /// 仅作用于 `workLogEnabled` 开启时的自然休息小结窗。
     public var workLogPromptTimeoutSeconds: TimeInterval
+    /// 退出休息（自然结束）后，弹轻量输入框记录这段休息里做的微运动（运动记录），默认开。
+    /// 仅对休息倒计时自然走完生效；提前结束（Esc）与被会议/下班打断均不弹。详见 ExerciseStore / CombinedReport。
+    public var exerciseLogEnabled: Bool
     /// 休息模式自定义音频文件的本地绝对路径（AVAudioPlayer 支持格式：mp3/m4a/aac/wav/flac/aiff 等）。
     /// 设置后休息时循环播放该文件，**取代内置粉噪音**；为 nil/空则回退粉噪音（受 `ambientSoundEnabled` 控制）。
     /// 文件由用户本地提供，**不打包、不分发**；App 非沙盒，故直接以路径引用（文件移动/删除会导致回退）。
@@ -90,6 +93,7 @@ public struct DayPlanConfig: Codable, Equatable, Sendable {
         controlQQMusic: Bool = true,
         workLogEnabled: Bool = true,
         workLogPromptTimeoutSeconds: TimeInterval = 180,
+        exerciseLogEnabled: Bool = true,
         restMusicPath: String? = nil
     ) {
         self.schemaVersion = schemaVersion
@@ -101,6 +105,7 @@ public struct DayPlanConfig: Codable, Equatable, Sendable {
         self.controlQQMusic = controlQQMusic
         self.workLogEnabled = workLogEnabled
         self.workLogPromptTimeoutSeconds = workLogPromptTimeoutSeconds
+        self.exerciseLogEnabled = exerciseLogEnabled
         self.restMusicPath = restMusicPath
     }
 
@@ -111,7 +116,7 @@ public struct DayPlanConfig: Codable, Equatable, Sendable {
     private enum CodingKeys: String, CodingKey {
         case schemaVersion, workWindows, workIntervalSeconds, restDurationSeconds
         case afkThresholdSeconds, ambientSoundEnabled, controlQQMusic, workLogEnabled
-        case workLogPromptTimeoutSeconds, restMusicPath
+        case workLogPromptTimeoutSeconds, exerciseLogEnabled, restMusicPath
     }
 
     public init(from decoder: Decoder) throws {
@@ -127,6 +132,7 @@ public struct DayPlanConfig: Codable, Equatable, Sendable {
         workLogEnabled = try c.decodeIfPresent(Bool.self, forKey: .workLogEnabled) ?? true
         // 显式存在的 0（永久等待）非 nil 故会被保留，不会被误补默认 180（迁移测试钉死此行为）。
         workLogPromptTimeoutSeconds = try c.decodeIfPresent(TimeInterval.self, forKey: .workLogPromptTimeoutSeconds) ?? d.workLogPromptTimeoutSeconds
+        exerciseLogEnabled = try c.decodeIfPresent(Bool.self, forKey: .exerciseLogEnabled) ?? true
         restMusicPath = try c.decodeIfPresent(String.self, forKey: .restMusicPath)
     }
 }
@@ -321,5 +327,20 @@ public struct PreBreakContext: Equatable, Sendable {
     /// 近似周期起点（回溯累计专注时长；AFK 冻结期不计入，故为近似值，报告场景足够）。
     public var approxPeriodStartedAt: Date {
         restStartedAt.addingTimeInterval(-workAccumulatedSeconds)
+    }
+}
+
+/// 「休息刚结束」的转换上下文：由引擎在休息自然结束（.resting → .working）后回调 AppRoot，
+/// AppRoot 据此决定是否弹运动记录录入窗。与 `PreBreakContext` 对称，纯数据、零 UI 依赖。
+/// 仅自然结束触发——提前结束（Esc 二次确认）与被会议/下班打断均不回调。
+public struct PostBreakContext: Equatable, Sendable {
+    /// 休息开始时刻（即结束前的 `EngineState.restStartedAt`）。
+    public let restStartedAt: Date
+    /// 休息结束时刻（= 触发回调时的 now）。运动时段默认取 `[restStartedAt, restEndedAt]`。
+    public let restEndedAt: Date
+
+    public init(restStartedAt: Date, restEndedAt: Date) {
+        self.restStartedAt = restStartedAt
+        self.restEndedAt = restEndedAt
     }
 }

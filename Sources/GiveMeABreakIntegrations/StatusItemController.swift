@@ -9,18 +9,24 @@ final class StatusItemController {
     private let onOpenSettings: () -> Void
     private let onOpenWorkLog: () -> Void
     private let onOpenBackfillWorkLog: () -> Void
+    private let onOpenCombinedReport: () -> Void
+    private let onOpenBackfillExercise: () -> Void
 
     init(onForceRest: @escaping () -> Void,
          loginEnabled: Bool,
          onSetLaunchAtLogin: @escaping (Bool) -> Void,
          onOpenSettings: @escaping () -> Void,
          onOpenWorkLog: @escaping () -> Void,
-         onOpenBackfillWorkLog: @escaping () -> Void) {
+         onOpenBackfillWorkLog: @escaping () -> Void,
+         onOpenCombinedReport: @escaping () -> Void,
+         onOpenBackfillExercise: @escaping () -> Void) {
         self.onForceRest = onForceRest
         self.onSetLaunchAtLogin = onSetLaunchAtLogin
         self.onOpenSettings = onOpenSettings
         self.onOpenWorkLog = onOpenWorkLog
         self.onOpenBackfillWorkLog = onOpenBackfillWorkLog
+        self.onOpenCombinedReport = onOpenCombinedReport
+        self.onOpenBackfillExercise = onOpenBackfillExercise
         statusItem = NSStatusBar.system.statusItem(withLength: NSStatusItem.variableLength)
         configureMenu(loginEnabled: loginEnabled)
     }
@@ -53,6 +59,16 @@ final class StatusItemController {
         backfill.target = self
         backfill.image = Self.menuSymbol("square.and.pencil", description: "补录工作日志")
         menu.addItem(backfill)
+
+        let combined = NSMenuItem(title: "综合报告…", action: #selector(openCombinedReport), keyEquivalent: "")
+        combined.target = self
+        combined.image = Self.menuSymbol("chart.bar.doc.horizontal", description: "综合报告")
+        menu.addItem(combined)
+
+        let backfillExercise = NSMenuItem(title: "补录运动记录…", action: #selector(openBackfillExercise), keyEquivalent: "")
+        backfillExercise.target = self
+        backfillExercise.image = Self.menuSymbol("figure.run", description: "补录运动记录")
+        menu.addItem(backfillExercise)
 
         menu.addItem(.separator())
 
@@ -106,6 +122,10 @@ final class StatusItemController {
     @objc private func openWorkLog() { onOpenWorkLog() }
 
     @objc private func openBackfillWorkLog() { onOpenBackfillWorkLog() }
+
+    @objc private func openCombinedReport() { onOpenCombinedReport() }
+
+    @objc private func openBackfillExercise() { onOpenBackfillExercise() }
 
     @objc private func toggleLogin(_ sender: NSMenuItem) {
         let newState = sender.state != .on

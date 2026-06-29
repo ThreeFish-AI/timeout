@@ -26,6 +26,14 @@ final public class AppRoot {
     /// 连续跳过计数（会话内；≥3 则下次静默并自愈，对抗提示疲劳）。
     private var consecutiveSkips: Int = 0
 
+    // 运动记录（休息自然结束后记录 + 综合报告 + 补录漏掉的时段）
+    private var exerciseStore: ExerciseStore?
+    private var exercisePromptController: ExercisePromptWindowController?
+    private var exerciseBackfillController: ExerciseBackfillWindowController?
+    private var combinedReportController: CombinedReportWindowController?
+    /// 运动记录连续跳过计数（会话内；≥3 则下次静默并自愈，对抗提示疲劳）。
+    private var consecutiveExerciseSkips: Int = 0
+
     private var lastSavedPhase: EnginePhase?
     private var lastSaveAt: Date = .distantPast
 
@@ -59,6 +67,23 @@ final public class AppRoot {
             self?.workLogStore?.append(entry)   // 补录条目按 startedAt 排序并入 work-log.json
         })
 
+        // 运动记录存储（复用同一 Application Support 目录；独立 exercise-log.json）
+        let exercise: ExerciseStore?
+        do {
+            exercise = try ExerciseStore(directory: dir)
+        } catch {
+            NSLog("[GiveMeABreak] 运动记录目录初始化失败，本次运行不记录：\(error)")
+            exercise = nil
+        }
+        exerciseStore = exercise
+        exercisePromptController = ExercisePromptWindowController()
+        exerciseBackfillController = ExerciseBackfillWindowController(onSave: { [weak self] entry in
+            self?.exerciseStore?.append(entry)
+        })
+        if let exercise, let workLog {
+            combinedReportController = CombinedReportWindowController(workStore: workLog, exerciseStore: exercise)
+        }
+
         let config = debugConfigOrLoaded(store: store)
         let sensors = SystemSensors()
         self.sensors = sensors
@@ -83,6 +108,7 @@ final public class AppRoot {
         engine.fastForward()  // 启动崩溃恢复
         engine.setPersistHandler { [weak self] state in self?.handlePersist(state) }
         engine.onPreBreak = { [weak self] ctx in self?.handlePreBreak(ctx) }  // 工作日志：休息前拦截
+        engine.onPostBreak = { [weak self] ctx in self?.handlePostBreak(ctx) }  // 运动记录：休息自然结束后录入
         self.engine = engine
         lastSavedPhase = engine.state.phase
 
@@ -95,7 +121,9 @@ final public class AppRoot {
             onSetLaunchAtLogin: { LoginService.setEnabled($0) },
             onOpenSettings: { [weak self] in self?.openSettings() },
             onOpenWorkLog: { [weak self] in self?.openWorkLog() },
-            onOpenBackfillWorkLog: { [weak self] in self?.openBackfillWorkLog() }
+            onOpenBackfillWorkLog: { [weak self] in self?.openBackfillWorkLog() },
+            onOpenCombinedReport: { [weak self] in self?.openCombinedReport() },
+            onOpenBackfillExercise: { [weak self] in self?.openBackfillExercise() }
         )
 
         let heartbeat = HeartbeatTimer(queue: .main)  // 主队列：副作用（overlay/music）均 UI 安全
@@ -132,6 +160,10 @@ final public class AppRoot {
         if ProcessInfo.processInfo.environment["GIVEMEABREAK_SHOW_WORKLOG"] != nil {
             openWorkLog()
         }
+        // 调试：启动即打开综合报告窗（便于截图验证；可配合 GIVEMEABREAK_COMBINED_SCOPE=week|month|quarter|year）
+        if ProcessInfo.processInfo.environment["GIVEMEABREAK_SHOW_COMBINED"] != nil {
+            openCombinedReport()
+        }
     }
 
     /// 应用退出前落盘最终状态。
@@ -163,6 +195,50 @@ final public class AppRoot {
         let lastEnd = workLogStore?.loadEntries().last?.endedAt
         let defaultStart = lastEnd ?? Date().addingTimeInterval(-50 * 60)
         workLogBackfillController?.show(defaultStart: defaultStart)
+    }
+
+    // MARK: - 运动记录
+
+    /// 打开「综合报告」窗口（菜单入口）：工作日志 + 运动记录按 周/月/季/年 合成。
+    func openCombinedReport() {
+        combinedReportController?.show()
+    }
+
+    /// 打开「补录运动记录」窗口（菜单入口）：默认起始取上一条记录的 endedAt，无则回退 10 分钟前。
+    func openBackfillExercise() {
+        let lastEnd = exerciseStore?.loadEntries().last?.endedAt
+        let defaultStart = lastEnd ?? Date().addingTimeInterval(-10 * 60)
+        exerciseBackfillController?.show(defaultStart: defaultStart)
+    }
+
+    /// 引擎在休息自然结束、回到工作时回调。决定弹运动录入窗还是静默放行——不阻塞、不冻结心跳。
+    private func handlePostBreak(_ ctx: PostBreakContext) {
+        let debug = ProcessInfo.processInfo.environment["GIVEMEABREAK_DEBUG"] != nil
+
+        // 关闭开关 → 不弹
+        guard (engine?.config.exerciseLogEnabled ?? true) || debug else { return }
+        // 连续跳过衰减：≥3 次连续跳过则本次静默并自愈（下次重新提示），对抗提示疲劳
+        if consecutiveExerciseSkips >= 3 {
+            consecutiveExerciseSkips = 0
+            return
+        }
+        guard let store = exerciseStore, let prompt = exercisePromptController else { return }
+
+        prompt.present(
+            restStartedAt: ctx.restStartedAt,
+            restEndedAt: ctx.restEndedAt,
+            onSubmit: { [weak self] sets, note in
+                store.append(ExerciseEntry(
+                    startedAt: ctx.restStartedAt,
+                    endedAt: ctx.restEndedAt,
+                    sets: sets,
+                    note: note))
+                self?.consecutiveExerciseSkips = 0
+            },
+            onSkip: { [weak self] in
+                self?.consecutiveExerciseSkips += 1
+            }
+        )
     }
 
     /// 引擎在自然休息、遮罩升起前回调。决定弹提示还是直接放行——**任何分支都必最终进入休息**。

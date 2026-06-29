@@ -31,7 +31,7 @@ struct SettingsView: View {
     private let onCancel: () -> Void
     private let onToggleLogin: (Bool) -> Void
 
-    private enum SettingsTab: Hashable { case general, schedule, sound, workLog }
+    private enum SettingsTab: Hashable { case general, schedule, sound, workLog, exercise }
 
     init(initial: DayPlanConfig,
          loginEnabled: Bool,
@@ -86,6 +86,14 @@ struct SettingsView: View {
                 .formStyle(.grouped)
                 .tabItem { Label("工作日志", systemImage: "note.text") }
                 .tag(SettingsTab.workLog)
+
+                // 运动记录：休息结束后的微运动录入（开关）
+                Form {
+                    exerciseSection
+                }
+                .formStyle(.grouped)
+                .tabItem { Label("运动记录", systemImage: "figure.run") }
+                .tag(SettingsTab.exercise)
             }
 
             Divider()
@@ -100,7 +108,7 @@ struct SettingsView: View {
             Button("恢复默认", role: .destructive) { draft = .defaultConfig }
             Button("取消", role: .cancel) {}
         } message: {
-            Text("将重置工作时段、节律、休息音效与工作日志为初始值（不影响开机自启）。")
+            Text("将重置工作时段、节律、休息音效、工作日志与运动记录为初始值（不影响开机自启）。")
         }
     }
 
@@ -309,6 +317,19 @@ struct SettingsView: View {
             Text("工作日志")
         } footer: {
             Text("自然休息前花 30 秒写下「刚完成什么 + 下一步」，完成认知闭合再休息。永不阻塞：回车提交 / Esc 或关窗跳过 / 到点自动放行（默认 3 分钟，可调，或设「永久等待」），也可在上方整体关闭；「立即休息」不弹。记录落盘，可在菜单「工作日志…」生成今日 / 本周 / 本月报告。")
+        }
+    }
+
+    // MARK: - 运动记录（休息自然结束后记录）
+
+    private var exerciseSection: some View {
+        Section {
+            Toggle("休息结束后记录运动", isOn: $draft.exerciseLogEnabled)
+                .accessibilityHint("休息倒计时自然走完时弹出输入框，记录这段休息里做的微运动（如深蹲、俯卧撑）")
+        } header: {
+            Text("运动记录")
+        } footer: {
+            Text("休息自然结束时花几秒记下做了哪些微运动（如胯下击掌 / 提膝击掌 / 深蹲 / 俯卧撑）与数量，日积月累。永不阻塞：回车「记录完成」/ Esc 或关窗跳过 / 到点自动放行；提前结束（Esc）与被会议、下班打断均不弹。运动记录与工作日志一并汇入菜单「综合报告…」，按 周 / 月 / 季 / 年 合成并导出。")
         }
     }
 

@@ -342,54 +342,5 @@ private func groupByMonth(_ entries: [WorkLogEntry], calendar: Calendar) -> [(St
     return dict.sorted { $0.key < $1.key }
 }
 
-// MARK: - 日期格式化（手动拼接，零 locale 依赖，确定性）
-
-/// ISO 周历（周一为首日、首周含首个周四）。复用传入 calendar 的 timeZone。
-private func isoCalendar(base: Calendar, timeZone: TimeZone) -> Calendar {
-    var c = base
-    c.timeZone = timeZone
-    c.firstWeekday = 2                  // 周一
-    c.minimumDaysInFirstWeek = 4        // ISO 8601
-    return c
-}
-
-private func dayKey(_ date: Date, calendar: Calendar) -> String {
-    let p = calendar.dateComponents([.year, .month, .day], from: date)
-    return String(format: "%04d-%02d-%02d", p.year ?? 0, p.month ?? 0, p.day ?? 0)
-}
-
-private func monthKey(_ date: Date, calendar: Calendar) -> String {
-    let p = calendar.dateComponents([.year, .month], from: date)
-    return String(format: "%04d-%02d", p.year ?? 0, p.month ?? 0)
-}
-
-private func weekKey(_ date: Date, calendar: Calendar) -> String {
-    // calendar 已配置为 ISO 8601（周一首日、首周含首个周四）：
-    // yearForWeekOfYear + weekOfYear 即 ISO 周日期（YYYY-Www）。
-    let yearForWeek = calendar.component(.yearForWeekOfYear, from: date)
-    let week = calendar.component(.weekOfYear, from: date)
-    return String(format: "%04d-W%02d", yearForWeek, week)
-}
-
-private func hhmm(_ date: Date, calendar: Calendar) -> String {
-    let p = calendar.dateComponents([.hour, .minute], from: date)
-    return String(format: "%02d:%02d", p.hour ?? 0, p.minute ?? 0)
-}
-
-private func weekdayCN(_ date: Date, calendar: Calendar) -> String {
-    // Calendar.weekday：1=周日 … 7=周六
-    switch calendar.component(.weekday, from: date) {
-    case 1: return "周日"
-    case 2: return "周一"
-    case 3: return "周二"
-    case 4: return "周三"
-    case 5: return "周四"
-    case 6: return "周五"
-    case 7: return "周六"
-    default: return ""
-    }
-}
-
-private func timeZoneIdentifier(_ tz: TimeZone) -> String {
-    tz.identifier
-}
+// 日期键（isoCalendar / dayKey / monthKey / weekKey / hhmm / weekdayCN / timeZoneIdentifier）
+// 已抽出至 ReportDateKeys.swift（internal 共享，与综合报告复用，SSOT）。

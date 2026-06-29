@@ -393,6 +393,99 @@ func runEngineWiringCases() {
         expectEqual(overlay.showCount, 1, "无 onPreBreak 时遮罩应即时升起（历史行为）")
         expectEqual(music.startCount, 1)
     }
+
+    // MARK: - 运动记录：post-break 回调（仅休息自然结束触发）
+
+    test("休息自然结束：onPostBreak 触发一次，携带休息起止；回工作后不再触发") {
+        let t0 = Date(timeIntervalSince1970: 0)
+        let clock = MockClock(t0)
+        let overlay = MockOverlay(), music = MockMusic(), calProv = StubCalendar(), sys = MockSystemState()
+        let engine = LiveGiveMeABreakEngine(
+            clock: clock, calendar: utcCalendar(), calendarProvider: calProv,
+            overlay: overlay, music: music, systemState: sys,
+            config: fullDayConfig(interval: m(50), rest: m(10)),
+            initialState: EngineState(phase: .working, lastTickAt: t0)
+        )
+        var captured: [PostBreakContext] = []
+        engine.onPostBreak = { captured.append($0) }
+
+        runTicks(engine, clock: clock, seconds: m(50))   // → 进入休息（restStartedAt = t0+50m）
+        expectEqual(engine.state.phase, .resting)
+        expectEqual(captured.count, 0, "进入休息不应触发 onPostBreak")
+
+        runTicks(engine, clock: clock, seconds: m(10))   // → 休息自然结束（t0+60m）→ working
+        expectEqual(engine.state.phase, .working, "休息自然结束应回到工作")
+        expectEqual(captured.count, 1, "休息自然结束应回调 onPostBreak 一次")
+        expect(approx(captured[0].restStartedAt.timeIntervalSince(t0), m(50), 1), "ctx.restStartedAt 应为休息开始时刻")
+        expect(approx(captured[0].restEndedAt.timeIntervalSince(t0), m(60), 1), "ctx.restEndedAt 应为休息结束时刻")
+
+        // 回工作后继续 tick 不应重复触发
+        runTicks(engine, clock: clock, seconds: m(5))
+        expectEqual(captured.count, 1, "回工作后不应重复触发 onPostBreak")
+    }
+
+    test("提前结束休息：onPostBreak 不触发（仅自然结束触发）") {
+        let t0 = Date(timeIntervalSince1970: 0)
+        let clock = MockClock(t0)
+        let overlay = MockOverlay(), music = MockMusic(), calProv = StubCalendar(), sys = MockSystemState()
+        let engine = LiveGiveMeABreakEngine(
+            clock: clock, calendar: utcCalendar(), calendarProvider: calProv,
+            overlay: overlay, music: music, systemState: sys,
+            config: fullDayConfig(interval: m(50), rest: m(10)),
+            initialState: EngineState(phase: .working, lastTickAt: t0)
+        )
+        var captured: [PostBreakContext] = []
+        engine.onPostBreak = { captured.append($0) }
+
+        runTicks(engine, clock: clock, seconds: m(50))   // → 进入休息
+        expectEqual(engine.state.phase, .resting)
+        engine.requestEarlyRestExit()                    // Esc 二次确认提前结束
+        expectEqual(engine.state.phase, .working)
+        expectEqual(captured.count, 0, "提前结束不应触发 onPostBreak（取舍：仅自然结束）")
+    }
+
+    test("休息被会议打断：onPostBreak 不触发（→ inMeeting，非 working）") {
+        let t0 = Date(timeIntervalSince1970: 0)
+        let clock = MockClock(t0)
+        let overlay = MockOverlay(), music = MockMusic(), calProv = StubCalendar(), sys = MockSystemState()
+        // 休息于 t0+50m 开始；会议 [t0+51m, t0+60m) 在休息中变为活跃 → abort 到 inMeeting
+        calProv.timeline = MeetingTimeline(busyIntervals: [
+            DateRange(start: t0.addingTimeInterval(m(51)), end: t0.addingTimeInterval(m(60))),
+        ])
+        let engine = LiveGiveMeABreakEngine(
+            clock: clock, calendar: utcCalendar(), calendarProvider: calProv,
+            overlay: overlay, music: music, systemState: sys,
+            config: fullDayConfig(interval: m(50), rest: m(10)),
+            initialState: EngineState(phase: .working, lastTickAt: t0)
+        )
+        var captured: [PostBreakContext] = []
+        engine.onPostBreak = { captured.append($0) }
+
+        runTicks(engine, clock: clock, seconds: m(50))   // → 进入休息
+        expectEqual(engine.state.phase, .resting)
+        runTicks(engine, clock: clock, seconds: m(2))    // t0+52m：会议活跃 → 打断
+        expectEqual(engine.state.phase, .inMeeting, "休息应被会议打断")
+        expectEqual(captured.count, 0, "打断（→ inMeeting）不应触发 onPostBreak")
+    }
+
+    test("onPostBreak=nil：休息自然结束行为与历史一致（零回归）") {
+        let t0 = Date(timeIntervalSince1970: 0)
+        let clock = MockClock(t0)
+        let overlay = MockOverlay(), music = MockMusic(), calProv = StubCalendar(), sys = MockSystemState()
+        let engine = LiveGiveMeABreakEngine(
+            clock: clock, calendar: utcCalendar(), calendarProvider: calProv,
+            overlay: overlay, music: music, systemState: sys,
+            config: fullDayConfig(interval: m(50), rest: m(10)),
+            initialState: EngineState(phase: .working, lastTickAt: t0)
+        )
+        // 不设置 onPostBreak（保持 nil）
+        runTicks(engine, clock: clock, seconds: m(50))
+        expectEqual(engine.state.phase, .resting)
+        runTicks(engine, clock: clock, seconds: m(10))
+        expectEqual(engine.state.phase, .working, "nil 回调下休息自然结束仍回到工作")
+        expectEqual(overlay.dismissCount, 1, "nil 回调下遮罩仍正常退出（零回归）")
+        expectEqual(music.pauseCount, 1)
+    }
 }
 
 private func minutes__(_ m: TimeInterval) -> TimeInterval { m * 60 }

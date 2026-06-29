@@ -21,6 +21,11 @@ public final class LiveGiveMeABreakEngine {
     /// `completeDeferredRest(now:)` 真正升起遮罩。仅自然休息（非 forcedRest）触发。
     /// nil 时（如既有单测）→ 不拦截，副作用即时分发，行为与历史逐字节一致。
     public var onPreBreak: ((PreBreakContext) -> Void)?
+    /// 「休息刚自然结束」回调（.resting → .working）。由 AppRoot 接管：弹运动记录录入窗。
+    /// 与 `onPreBreak` 对称，但**仅休息自然结束触发**——提前结束（requestEarlyRestExit）与被会议/下班
+    /// 打断（→ inMeeting/offDuty）均不回调。在 state 完全落定、副作用分发之后触发，故不改遮罩/音乐，
+    /// nil 时（如既有单测）行为与历史逐字节一致。
+    public var onPostBreak: ((PostBreakContext) -> Void)?
 
     public init(clock: Clock,
                 calendar: Calendar = .current,
@@ -49,6 +54,7 @@ public final class LiveGiveMeABreakEngine {
     public func tick() {
         let now = clock.now()
         let oldPhase = state.phase
+        let restStartBeforeTransition = state.restStartedAt  // 休息结束前捕获，供 onPostBreak 上下文（transition 会清 nil）
 
         // ② 先取系统活动状态（AFK/睡眠），决定本 tick 是否计工作
         let isAFK = systemState.idleSeconds() > config.afkThresholdSeconds
@@ -96,6 +102,13 @@ public final class LiveGiveMeABreakEngine {
 
         if willDeferForWorkLog, let restStart = s.restStartedAt {
             onPreBreak?(PreBreakContext(restStartedAt: restStart, workAccumulatedSeconds: s.workAccumulatedSeconds))
+        }
+
+        // 运动记录：休息自然结束回到工作（.resting → .working）→ 回调 AppRoot 弹录入窗。
+        // 仅此一路（自然结束）触发；被会议/下班打断（→ inMeeting/offDuty）或结束即 AFK（→ idle）均不触发。
+        // 在 state 落定、副作用分发之后触发，纯通知、不改遮罩/音乐（onPostBreak=nil 时零行为变化）。
+        if oldPhase == .resting && s.phase == .working {
+            onPostBreak?(PostBreakContext(restStartedAt: restStartBeforeTransition ?? now, restEndedAt: now))
         }
 
         persistHandler?(state)

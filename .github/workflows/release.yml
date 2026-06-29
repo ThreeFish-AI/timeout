@@ -204,6 +204,10 @@ jobs:
     needs: [macos, windows]
     timeout-minutes: 10
     steps:
+      # 取仓库（含 CHANGELOG.md）以便把本版本章节注入 Release Note 正文。
+      - name: Checkout (for CHANGELOG → Release Note)
+        uses: actions/checkout@9c091bb21b7c1c1d1991bb908d89e4e9dddfe3e0 # v7.0.0
+
       - name: Download markers
         # NOTE: 暂用 tag，待 SHA-pin。
         uses: actions/download-artifact@v8
@@ -236,6 +240,33 @@ jobs:
           test -f "give-me-a-break-${RELEASE_VERSION}-macos.zip"
           test -f "give-me-a-break-${RELEASE_VERSION}-win64.zip"
 
+      # Release Note 正文 = CHANGELOG 本版本章节（「本次更新」）+ 安装说明（mac/win，按公证态分支）。
+      - name: Build release notes (CHANGELOG + 安装说明)
+        run: |
+          set -euo pipefail
+          SECTION=$(awk -v v="## v${RELEASE_VERSION}" '
+            index($0, v)==1 {f=1; print; next}
+            f && /^## / {exit}
+            f {print}
+          ' CHANGELOG.md)
+          if [ -z "$SECTION" ]; then
+            echo "::warning::CHANGELOG 未找到 v${RELEASE_VERSION} 章节，正文回退仅安装说明。"
+            SECTION="## Give me a break ${RELEASE_VERSION}"
+          fi
+          {
+            printf '%s\n\n' "$SECTION"
+            printf -- '---\n\n'
+            printf '### macOS\n\n下载 `give-me-a-break-%s-macos.zip`。解压后将 `GiveMeABreak.app` 拖入 `/Applications`；首次启动需在「系统设置 → 隐私与安全性」授权辅助功能与媒体控制权限。\n\n' "$RELEASE_VERSION"
+            if [ "${NOTARIZED}" = "true" ]; then
+              printf '> ✅ 已通过 Apple 公证（Notarized）+ Developer ID 签名，Gatekeeper 可直接放行。\n\n'
+            else
+              printf '> ⚠️ 此版本为 ad-hoc 签名（未签名/未公证）。首次打开会被 Gatekeeper 拦截，请执行 `xattr -dr com.apple.quarantine /Applications/GiveMeABreak.app` 放行（macOS 15.1 Sequoia 起「右键→打开」已失效），仅供内测。\n\n'
+            fi
+            printf '### Windows\n\n下载 `give-me-a-break-%s-win64.zip`。解压后运行 `GiveMeABreakShell.exe`。内置 .NET 8 运行时，**无需额外安装任何依赖**。\n\n' "$RELEASE_VERSION"
+            printf '> ⚠️ **此 Windows 版本未签名**。首次运行会被 SmartScreen 拦截，请点击「更多信息 → 仍要运行」。`GiveMeABreakShell.exe` 可能被杀软（Defender / 360 / 火绒）误报（`WH_KEYBOARD_LL` 键盘钩子 + `SendInput` 媒体键触发），需手动加入信任。代码签名将在后续版本提供。\n'
+          } > RELEASE_NOTES.md
+          echo "==> RELEASE_NOTES.md 预览（前 30 行）："; sed -n '1,30p' RELEASE_NOTES.md
+
       - name: Create GitHub Release
         uses: softprops/action-gh-release@718ea10b132b3b2eba29c1007bb80653f286566b # v3.0.1
         with:
@@ -245,16 +276,8 @@ jobs:
             give-me-a-break-${{ env.RELEASE_VERSION }}-macos.zip
             give-me-a-break-${{ env.RELEASE_VERSION }}-win64.zip
           fail_on_unmatched_files: true
-          prerelease: ${{ github.event.inputs.prerelease == 'true' }}
-          body: |
-            ## Give me a break ${{ env.RELEASE_VERSION }}
-
-            ### macOS
-            下载 `give-me-a-break-${{ env.RELEASE_VERSION }}-macos.zip`。解压后将 `GiveMeABreak.app` 拖入 `/Applications`；首次启动需在「系统设置 → 隐私与安全性」授权辅助功能与媒体控制权限。
-
-            ${{ env.NOTARIZED == 'true' && '> ✅ 已通过 Apple 公证（Notarized）+ Developer ID 签名，Gatekeeper 可直接放行。' || '> ⚠️ 此版本为 ad-hoc 签名（未签名/未公证）。首次打开会被 Gatekeeper 拦截，请执行 `xattr -dr com.apple.quarantine /Applications/GiveMeABreak.app` 放行（macOS 15.1 Sequoia 起「右键→打开」已失效），仅供内测。' }}
-
-            ### Windows
-            下载 `give-me-a-break-${{ env.RELEASE_VERSION }}-win64.zip`。解压后运行 `GiveMeABreakShell.exe`。内置 .NET 8 运行时，**无需额外安装任何依赖**。
-
-            > ⚠️ **此 Windows 版本未签名**。首次运行会被 SmartScreen 拦截，请点击「更多信息 → 仍要运行」。`GiveMeABreakShell.exe` 可能被杀软（Defender / 360 / 火绒）误报（`WH_KEYBOARD_LL` 键盘钩子 + `SendInput` 媒体键触发），需手动加入信任。代码签名将在后续版本提供。
+          # 预发布：带连字符的语义化版本 tag（如 -rc.1 / -beta）自动标记 prerelease；workflow_dispatch 可显式覆盖。
+          prerelease: ${{ github.event.inputs.prerelease == 'true' || contains(github.ref, '-') }}
+          # 仅正式版（无连字符且非 dispatch-prerelease）置为 Latest，避免预发布抢占 GA 的 Latest。
+          make_latest: ${{ github.event.inputs.prerelease != 'true' && !contains(github.ref, '-') }}
+          body_path: RELEASE_NOTES.md

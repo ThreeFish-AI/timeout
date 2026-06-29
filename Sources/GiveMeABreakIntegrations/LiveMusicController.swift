@@ -1,16 +1,20 @@
 import AppKit
+import AVFoundation
 import CoreGraphics
 import GiveMeABreakEngine
 
-/// 休息音效控制器（双轨）：
-/// 1. **内置粉噪音**（`AmbientSoundPlayer`）——可靠、零依赖，保证休息必有舒缓音效；
-/// 2. **QQ 音乐媒体键联动**（CGEvent `NX_KEYTYPE_PLAY`）——可选增强，需安装并授权。
+/// 休息音效控制器（三轨，按优先级择一/叠加）：
+/// 1. **自定义休息音频**（`restMusicPath` 指向的本地文件，`AVAudioPlayer` 循环）——设置即取代粉噪音；加载失败回退粉噪音；
+/// 2. **内置粉噪音**（`AmbientSoundPlayer`）——可靠、零依赖，保证休息必有舒缓音效（无自定义音频时的默认）；
+/// 3. **QQ 音乐媒体键联动**（CGEvent `NX_KEYTYPE PLAY`）——可选增强，需安装并授权，与上述任一音轨叠加。
 ///
 /// 修复历史问题：原版仅靠媒体键控外部 QQ 音乐，未安装/未授权即**静默失败、无任何音效**。
 /// 现内置粉噪音作为可靠底噪（无论 QQ 音乐是否可用都会响），QQ 音乐降级为可选联动。
 /// 并补全诊断日志，让「为何不响」可观测。
 final class LiveMusicController: MusicController {
     private let ambient = AmbientSoundPlayer()
+    /// 自定义休息音频播放器（AVAudioPlayer，循环）。每次休息按当前 config 路径重新载入。
+    private var filePlayer: AVAudioPlayer?
     private var config: DayPlanConfig = .defaultConfig
 
     // QQ 音乐联动（保留原 CGEvent 媒体键路径，降级为可选）
@@ -22,7 +26,15 @@ final class LiveMusicController: MusicController {
     }
 
     func startPlayback() {
-        if config.ambientSoundEnabled {
+        // 优先：自定义休息音频（取代粉噪音）。加载失败则回退粉噪音，保证休息必有舒缓音效。
+        let customPath = config.restMusicPath?.trimmingCharacters(in: .whitespacesAndNewlines) ?? ""
+        if !customPath.isEmpty {
+            if startCustomFile(customPath) {
+                // 自定义音频已起，跳过粉噪音
+            } else if config.ambientSoundEnabled {
+                ambient.start()
+            }
+        } else if config.ambientSoundEnabled {
             ambient.start()                  // 可靠音效：不依赖任何外部 app
         }
         if config.controlQQMusic {
@@ -31,10 +43,37 @@ final class LiveMusicController: MusicController {
     }
 
     func pausePlayback() {
+        filePlayer?.stop()                   // 幂等：停止自定义音频并释放本次缓冲
+        filePlayer = nil
         ambient.stop()                       // 幂等：未播放时 no-op
         if config.controlQQMusic {
             postMediaKey(16)                 // NX_KEYTYPE_PLAY toggle → 暂停（保留队列/进度）
             NSLog("[GiveMeABreak][music] 发送 pause 媒体键（toggle，保留队列）")
+        }
+    }
+
+    // MARK: - 自定义休息音频（AVAudioPlayer，循环；文件由用户本地提供，不打包不分发）
+
+    /// 载入并循环播放本地音频文件。成功返回 true；路径无效/格式不支持/解码失败时记日志并返回 false（由调用方回退粉噪音）。
+    private func startCustomFile(_ path: String) -> Bool {
+        guard FileManager.default.fileExists(atPath: path) else {
+            NSLog("[GiveMeABreak][music] 自定义休息音频不存在，回退粉噪音：\(path)")
+            return false
+        }
+        do {
+            let player = try AVAudioPlayer(contentsOf: URL(fileURLWithPath: path))
+            player.numberOfLoops = -1        // 无限循环，覆盖整段休息
+            player.volume = 0.8              // 休息舒适响度（对齐粉噪音 0.4 的温和取向）
+            guard player.prepareToPlay(), player.play() else {
+                NSLog("[GiveMeABreak][music] 自定义休息音频 prepare/play 失败，回退粉噪音：\(path)")
+                return false
+            }
+            filePlayer = player
+            NSLog("[GiveMeABreak][music] 自定义休息音频已启动（循环）：\((path as NSString).lastPathComponent)")
+            return true
+        } catch {
+            NSLog("[GiveMeABreak][music] 自定义休息音频载入失败（格式不支持或损坏），回退粉噪音：\(error.localizedDescription) · \(path)")
+            return false
         }
     }
 

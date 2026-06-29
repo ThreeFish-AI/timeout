@@ -85,6 +85,7 @@ func runConfigStoreCases() {
         var json = try! JSONSerialization.jsonObject(with: Data(contentsOf: cfgURL)) as! [String: Any]
         json.removeValue(forKey: "ambientSoundEnabled")   // 模拟旧版缺失
         json.removeValue(forKey: "controlQQMusic")
+        json.removeValue(forKey: "workLogPromptTimeoutSeconds")  // v4 新增字段，旧版无
         json["schemaVersion"] = 1
         let rewritten = try! JSONSerialization.data(withJSONObject: json, options: [.prettyPrinted])
         try! rewritten.write(to: cfgURL)
@@ -97,5 +98,137 @@ func runConfigStoreCases() {
         expectEqual(loaded.ambientSoundEnabled, true, "缺失的 ambientSoundEnabled 应补默认 true")
         expectEqual(loaded.controlQQMusic, true, "缺失的 controlQQMusic 应补默认 true")
         expectEqual(loaded.workLogEnabled, true, "缺失的 workLogEnabled（v3 新增）应补默认 true")
+        expectEqual(loaded.workLogPromptTimeoutSeconds, 180, "缺失的 workLogPromptTimeoutSeconds（v4 新增）应补默认 180")
+    }
+
+    test("workLogPromptTimeoutSeconds round-trip：自定义有限时长") {
+        let store = try! ConfigStore(directory: makeTempDir())
+        var config = DayPlanConfig.defaultConfig
+        config.workLogPromptTimeoutSeconds = 300  // 5 分钟
+        try! store.saveConfig(config)
+        expectEqual(store.loadConfig().workLogPromptTimeoutSeconds, 300, "自定义等待时长应原样读回")
+    }
+
+    test("workLogPromptTimeoutSeconds 哨兵 0（永久等待）显式存在时不被误补默认") {
+        let store = try! ConfigStore(directory: makeTempDir())
+        var config = DayPlanConfig.defaultConfig
+        config.workLogPromptTimeoutSeconds = 0  // 永久等待
+        try! store.saveConfig(config)
+        // 显式 0 非 nil，decodeIfPresent 应保留，不得回退 180（钉死永久等待语义，防回归）
+        expectEqual(store.loadConfig().workLogPromptTimeoutSeconds, 0, "显式 0（永久等待）必须严格保留，不被默认 180 覆盖")
+    }
+
+    test("schema 迁移：旧 v3 config 缺 workLogPromptTimeoutSeconds → 升 v4 补默认 180，旧字段保留") {
+        let dir = makeTempDir()
+        let store = try! ConfigStore(directory: dir)
+        let seed = DayPlanConfig(
+            schemaVersion: 3,
+            workWindows: [WorkWindow(start: TimeOfDay(hours: 8), end: TimeOfDay(hours: 12))],
+            workIntervalSeconds: 3000,
+            restDurationSeconds: 600,
+            afkThresholdSeconds: 180,
+            ambientSoundEnabled: false,
+            controlQQMusic: false,
+            workLogEnabled: false,
+            workLogPromptTimeoutSeconds: 240
+        )
+        try! store.saveConfig(seed)
+        let cfgURL = dir.appendingPathComponent("config.json")
+        var json = try! JSONSerialization.jsonObject(with: Data(contentsOf: cfgURL)) as! [String: Any]
+        json.removeValue(forKey: "workLogPromptTimeoutSeconds")  // 模拟 v3 旧配置无此字段
+        json["schemaVersion"] = 3
+        let rewritten = try! JSONSerialization.data(withJSONObject: json, options: [.prettyPrinted])
+        try! rewritten.write(to: cfgURL)
+
+        let loaded = store.loadConfig()
+        expectEqual(loaded.schemaVersion, DayPlanConfig.currentSchemaVersion, "v3→v4 版本号应规范化")
+        expectEqual(loaded.workLogPromptTimeoutSeconds, 180, "缺失的 workLogPromptTimeoutSeconds 应补默认 180")
+        expectEqual(loaded.workLogEnabled, false, "原 workLogEnabled=false 应保留")
+        expectEqual(loaded.ambientSoundEnabled, false, "原 ambientSoundEnabled=false 应保留")
+        expectEqual(loaded.workWindows.count, 1, "原工作窗口应保留")
+    }
+
+    test("restMusicPath 默认 nil：旧配置缺该字段补 nil") {
+        let store = try! ConfigStore(directory: makeTempDir())
+        let loaded = store.loadConfig()  // 无文件 → 默认
+        expect(loaded.restMusicPath == nil, "默认 restMusicPath 应为 nil（无自定义音频，回退粉噪音）")
+    }
+
+    test("restMusicPath round-trip：自定义本地音频路径") {
+        let store = try! ConfigStore(directory: makeTempDir())
+        var config = DayPlanConfig.defaultConfig
+        config.restMusicPath = "/Users/demo/Music/windy-hill.mp3"
+        try! store.saveConfig(config)
+        expectEqual(store.loadConfig().restMusicPath, "/Users/demo/Music/windy-hill.mp3", "自定义音频路径应原样读回")
+    }
+
+    test("schema 迁移：旧 v4 config 缺 restMusicPath → 升 v5 补 nil，旧字段保留") {
+        let dir = makeTempDir()
+        let store = try! ConfigStore(directory: dir)
+        let seed = DayPlanConfig(
+            schemaVersion: 4,
+            workWindows: [WorkWindow(start: TimeOfDay(hours: 9), end: TimeOfDay(hours: 12))],
+            workIntervalSeconds: 3000,
+            restDurationSeconds: 600,
+            afkThresholdSeconds: 180,
+            ambientSoundEnabled: true,
+            controlQQMusic: true,
+            workLogEnabled: true,
+            workLogPromptTimeoutSeconds: 240
+            // restMusicPath 不传（v5 新增，模拟旧 v4 配置）
+        )
+        try! store.saveConfig(seed)
+        let cfgURL = dir.appendingPathComponent("config.json")
+        var json = try! JSONSerialization.jsonObject(with: Data(contentsOf: cfgURL)) as! [String: Any]
+        json.removeValue(forKey: "restMusicPath")  // 确保 v4 旧配置无此字段
+        json["schemaVersion"] = 4
+        let rewritten = try! JSONSerialization.data(withJSONObject: json, options: [.prettyPrinted])
+        try! rewritten.write(to: cfgURL)
+
+        let loaded = store.loadConfig()
+        expectEqual(loaded.schemaVersion, DayPlanConfig.currentSchemaVersion, "v4→v5 版本号应规范化")
+        expect(loaded.restMusicPath == nil, "缺失的 restMusicPath 应补 nil")
+        expectEqual(loaded.workLogPromptTimeoutSeconds, 240, "原 workLogPromptTimeoutSeconds 应保留")
+        expectEqual(loaded.workWindows.count, 1, "原工作窗口应保留")
+    }
+
+    test("exerciseLogEnabled round-trip：自定义关闭值原样读回") {
+        let store = try! ConfigStore(directory: makeTempDir())
+        var config = DayPlanConfig.defaultConfig
+        config.exerciseLogEnabled = false
+        try! store.saveConfig(config)
+        expectEqual(store.loadConfig().exerciseLogEnabled, false, "原 exerciseLogEnabled=false 应保留")
+    }
+
+    test("schema 迁移：旧 v5 config 缺 exerciseLogEnabled → 升 v6 补默认 true，旧字段保留") {
+        let dir = makeTempDir()
+        let store = try! ConfigStore(directory: dir)
+        let seed = DayPlanConfig(
+            schemaVersion: 5,
+            workWindows: [WorkWindow(start: TimeOfDay(hours: 9), end: TimeOfDay(hours: 12))],
+            workIntervalSeconds: 3000,
+            restDurationSeconds: 600,
+            afkThresholdSeconds: 180,
+            ambientSoundEnabled: true,
+            controlQQMusic: false,
+            workLogEnabled: false,
+            workLogPromptTimeoutSeconds: 240,
+            restMusicPath: "/tmp/a.mp3"
+            // exerciseLogEnabled 不传（v6 新增，模拟旧 v5 配置）
+        )
+        try! store.saveConfig(seed)
+        let cfgURL = dir.appendingPathComponent("config.json")
+        var json = try! JSONSerialization.jsonObject(with: Data(contentsOf: cfgURL)) as! [String: Any]
+        json.removeValue(forKey: "exerciseLogEnabled")  // 确保 v5 旧配置无此字段
+        json["schemaVersion"] = 5
+        let rewritten = try! JSONSerialization.data(withJSONObject: json, options: [.prettyPrinted])
+        try! rewritten.write(to: cfgURL)
+
+        let loaded = store.loadConfig()
+        expectEqual(loaded.schemaVersion, DayPlanConfig.currentSchemaVersion, "v5→v6 版本号应规范化")
+        expectEqual(loaded.exerciseLogEnabled, true, "缺失的 exerciseLogEnabled 应补默认 true")
+        expectEqual(loaded.workLogEnabled, false, "原 workLogEnabled=false 应保留")
+        expectEqual(loaded.controlQQMusic, false, "原 controlQQMusic=false 应保留")
+        expectEqual(loaded.restMusicPath, "/tmp/a.mp3", "原 restMusicPath 应保留")
     }
 }

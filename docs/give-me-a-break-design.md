@@ -104,7 +104,7 @@ func mergeBusyIntervals(_:) -> [DateRange]  // 纯函数，端点相接合并（
 
 - **Leroy 注意力残留 [7]**：任务切换时部分注意力滞留于前一任务（尤以未完成/被打断时为甚），降低后续认知资源。其在转换点写下「已完成 / 剩余 / 回归首步」的 *ready-to-resume plan*（< 1 分钟）即给大脑闭合 [8]。本特性的「下一步（可选）」字段即此干预的直接落地。
 - **Stubblebine 插值日记 [9], [10]**：以「任务转换」为触发（非时钟），在转换点花 2–4 句、60–90 秒记录，保持轻盈否则首周即弃 [10]。本特性钉死在唯一转换边界（`.working → .resting`），文案为「闭合」而非「汇报」。
-- **Fogg 行为模型 [11]**：动机低且可变时，最大化 Ability（简化）是改变行为的关键——故字段可选、回车即提交、60s 自动放行、轮换占位、软字符计数（不硬截断、不设最小长度——最小长度是已证实的完成杀手 [12]）。
+- **Fogg 行为模型 [11]**：动机低且可变时，最大化 Ability（简化）是改变行为的关键——故字段可选、回车即提交、到点自动放行（等待时长可配，默认 3 分钟；亦可设永久等待）、轮换占位、软字符计数（不硬截断、不设最小长度——最小长度是已证实的完成杀手 [12]）。
 - **JITAI [13]**：提示在「已被接受的打断」（休息本身）时机出现，而非新增第二个打断；提供 *provide-nothing* 选项（连续跳过衰减 + 可关闭）以对抗习惯化与怨恨。
 
 ### 7.2 架构（正交，纯 FSM 零改动）
@@ -128,14 +128,14 @@ tick() 检测 eff.showOverlay（.working → .resting）
   │     └─ AppRoot.handlePreBreak(ctx):
   │          ├─ 门控：workAccum < 15min 且非 DEBUG → 不弹，直接 completeDeferredRest
   │          ├─ 连续跳过衰减：≥3 次 → 本次静默并清零（自愈）
-  │          ├─ 弹提示：heartbeat.suspend()（冻结 tick，休息倒计时不被侵蚀）+ present
-  │          └─ 提交/跳过/60s 超时 → WorkLogStore.append（仅提交非空）→ completeDeferredRest → resume
+  │          ├─ 弹提示：heartbeat.suspend()（冻结 tick，休息倒计时不被侵蚀）+ present(timeout)
+  │          └─ 提交/跳过/超时/关窗 → WorkLogStore.append（仅提交非空）→ completeDeferredRest → resume
   └─ else: overlay.show / music（既有路径不变）
 ```
 
 **`completeDeferredRest(now:)` 是第二个「绕过 tick 直接改 state」的路径**（首个为 `requestEarlyRestExit`）。遵循 [issue #6](../.agents/issue.md) 铁律——与 tick 不变量逐一对齐：guard `phase == .resting`；`restStartedAt = now`（rebase，完整休息时长不被提示耗时侵蚀）；`lastTickAt = now`（rebase 对账基点，恢复心跳后首 tick delta≈0 不回灌）；不改 phase、不动 `forcedRest`（仅离开 `.resting` 时清）。
 
-**永不阻塞休息**：回车提交 / Esc / 跳过按钮 / 60s `DispatchSource` 硬超时（独立于被冻结的引擎心跳）四路任一即 `completeDeferredRest` 升起遮罩。
+**永不阻塞休息**：回车提交 / Esc / 跳过按钮 / 红色关闭按钮（`windowWillClose`）/ 到点 `DispatchSource` 超时（等待时长由 `config.workLogPromptTimeoutSeconds` 配置，独立于被冻结的引擎心跳）任一即 `completeDeferredRest` 升起遮罩。**永久等待**（`workLogPromptTimeoutSeconds == 0`）下不调度超时定时器，仅靠前几路手动出口；系统唤醒时若提示窗仍开启则不抢恢复心跳，避免延迟休息被静默判定结束。
 
 **规避 [issue #6](../.agents/issue.md) z-order 陷阱**：提示窗在遮罩**之前**渲染（普通 `.floating` 层级），而非塞进 `CGShieldingWindowLevel` 遮罩内部或用 `NSAlert`（后者会被遮罩遮挡不可见）。
 

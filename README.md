@@ -18,9 +18,10 @@
 
 - **强制排版作息**：工作窗口内每累计 N 分钟（默认 50）→ 强制休息 M 分钟（默认 10）。
 - **全屏遮罩**：休息时遮罩所有显示器（`CGShieldingWindowLevel`，压过菜单栏/Dock/全屏），按 Esc 需**二次确认**才可提前结束（软强制，留逃生阀）。
-- **休息音效**：进入休息播放内置**粉噪音**（AVAudioEngine 实时合成，零音频文件、不依赖外部播放器，可靠）；可选联动 QQ 音乐（经系统 Now Playing 路由的 CGEvent 媒体键）。结束休息自动停止。两者均可在设置中开关。
+- **休息音效**：进入休息播放**自定义音频**（在设置选择本地 mp3/m4a/aac/wav/flac 等文件，循环播放，取代内置粉噪音；文件不打包不分发，仅以本地路径引用，缺失/不可用自动回退粉噪音）或内置**粉噪音**（AVAudioEngine 实时合成，零音频文件、可靠）；可选叠加联动 QQ 音乐（经系统 Now Playing 路由的 CGEvent 媒体键）。结束休息自动停止。均可在设置中配置。
 - **Google 日历门控**：会议计为工作时间，但休息推迟到会议结束。例：工作 30min 后接 30min 会议 → 连续工作 60min，会议结束才开始 10min 休息。
-- **工作日志（认知闭合仪式）**：自然休息前弹一个轻量输入框，花 30 秒写下「刚刚完成了什么 + 可选下一步」，让大脑真正放下再休息（循证：Leroy 注意力残留 / Stubblebine 插值日记）。记录按时间段落盘，菜单「工作日志…」一键生成今日/本周/月报 Markdown，支持复制与导出。永不阻塞休息：回车提交 / Esc 跳过 / 60s 自动放行；默认开启、可在设置关闭；「立即休息」不弹。
+- **工作日志（认知闭合仪式）**：自然休息前弹一个轻量输入框，花 30 秒写下「刚刚完成了什么 + 可选下一步」，让大脑真正放下再休息（循证：Leroy 注意力残留 / Stubblebine 插值日记）。记录按时间段落盘，菜单「工作日志…」一键生成今日/本周/月报 Markdown，支持复制与导出。永不阻塞休息：回车提交 / Esc 跳过 / 关窗放行 / 到点自动放行（等待时长可在设置调整，默认 3 分钟）；亦可设「永久等待」让窗口停留至手动操作，或在设置关闭整个环节；「立即休息」不弹。
+- **运动记录 + 综合报告**：与工作日志对称——**休息自然结束时**弹轻量输入框，记录这段休息里做的微运动（如胯下击掌 / 提膝击掌 / 深蹲 / 俯卧撑），每条含「运动时段 + 若干（类型 × 数量）」；提前结束（Esc）与被会议、下班打断均不弹。运动记录与工作日志一并汇入菜单「综合报告…」，按**周 / 月 / 季 / 年**合成原生层级报告（工作 Top N + 周期分布、运动按类型聚合 + 明细），支持复制与导出 Markdown。
 - **健壮性**：AFK/睡眠暂停累加（不回灌）、崩溃恢复（fast-forward）、多屏热插拔、状态持久化。
 
 ## 架构总览
@@ -58,7 +59,7 @@ flowchart LR
 
 ## 下载与安装（Release 资产）
 
-本版本为**内测 / Beta**：双端均**未做代码签名 / 公证**（GA 待补 macOS 签名公证 + Windows 真机验收）。从 [Releases](https://github.com/ThreeFish-AI/give-me-a-break/releases) 下载对应平台 zip。
+本版本为 **MVP 正式发布（GA）**：功能完备，但 macOS / Windows 双端产物**均未做代码签名 / 公证**（代码签名公证与 Windows 真机验收将在后续版本补齐），首次启动需按下方说明手动放行。从 [Releases](https://github.com/ThreeFish-AI/give-me-a-break/releases) 下载对应平台 zip。
 
 **macOS**（`give-me-a-break-*-macos.zip`）：ad-hoc 签名、未公证，首次打开会被 Gatekeeper 拦截。解压后将 `GiveMeABreak.app` 拖入 `/Applications`，在终端执行一次去隔离即可正常启动（macOS 15 起已无右键「打开」旁路）：
 
@@ -120,7 +121,7 @@ Give me a break 是**非沙盒**应用（沙盒会阻断媒体键与日历自动
 
 ```json
 {
-  "schemaVersion": 3,
+  "schemaVersion": 5,
   "workWindows": [
     { "start": { "hours": 9 }, "end": { "hours": 12 } },
     { "start": { "hours": 13, "minutes": 40 }, "end": { "hours": 18 } }
@@ -130,17 +131,19 @@ Give me a break 是**非沙盒**应用（沙盒会阻断媒体键与日历自动
   "afkThresholdSeconds": 180,
   "ambientSoundEnabled": true,
   "controlQQMusic": true,
-  "workLogEnabled": true
+  "workLogEnabled": true,
+  "restMusicPath": null,
+  "workLogPromptTimeoutSeconds": 180
 }
 ```
 
-工作日志单独持久化为 `work-log.json`（同目录），schema 见 [shared/work-log.schema.json](./shared/work-log.schema.json)；报告生成（今日/本周/月报 Markdown）见菜单「工作日志…」。
+工作日志单独持久化为 `work-log.json`（同目录），schema 见 [shared/work-log.schema.json](./shared/work-log.schema.json)；报告生成（今日/本周/月报 Markdown）见菜单「工作日志…」。运动记录单独持久化为 `exercise-log.json`（同目录）；与工作日志合成的综合报告（周/月/季/年 Markdown）见菜单「综合报告…」。
 
-可在**设置窗口**图形化编辑（即时保存 + 引擎热更新，无需手动改 JSON）。菜单栏显示「英文状态 + 倒计时」（如 `Work 23′` / `Break 8′`），下拉菜单提供「立即休息 / 设置 / 工作日志 / 退出」；「开机自启」已迁入设置窗口的「一般」分组。
+可在**设置窗口**图形化编辑（即时保存 + 引擎热更新，无需手动改 JSON）。菜单栏显示「英文状态 + 倒计时」（如 `Work 23′` / `Break 8′`），下拉菜单提供「立即休息 / 设置 / 工作日志 / 补录工作日志 / 综合报告 / 补录运动记录 / 退出」；「开机自启」已迁入设置窗口的「一般」分组。
 
 ## 验证
 
-- **单元测试**：`make test`（47 用例，<1s）覆盖 FSM 谓词优先级、工作示例（30+30→60→10）、AFK 冻结、睡眠不回灌、fast-forward、区间合并等。详见 [设计文档](./docs/give-me-a-break-design.md#测试矩阵)。
+- **单元测试**：`make test`（77 用例，<1s）覆盖 FSM 谓词优先级、工作示例（30+30→60→10）、AFK 冻结、睡眠不回灌、fast-forward、区间合并、工作日志记录/报告/补录、运动记录/综合报告（周/月/季/年）、onPostBreak 触发不变量、配置迁移（v3→v6）等。详见 [设计文档](./docs/give-me-a-break-design.md#测试矩阵)。
 - **端到端**（真机，三权限 + QQ 音乐 + Google 账户）：`GIVEMEABREAK_DEBUG=1` 观察遮罩/音乐周期；正常时段等待 50min 触发；日历建会议验证推迟。
 
 ## 已知限制（透明披露）

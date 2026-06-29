@@ -13,7 +13,10 @@ final class WorkLogReportWindowController {
     }
 
     func show() {
-        let view = WorkLogReportView(store: store) { [weak self] in
+        // 调试：GIVEMEABREAK_WORKLOG_SCOPE=today|week|month|all 指定初始周期（截图验证用；默认今日）
+        let initialScope = ProcessInfo.processInfo.environment["GIVEMEABREAK_WORKLOG_SCOPE"]
+            .flatMap { WorkLogReportScope(rawValue: $0) } ?? .today
+        let view = WorkLogReportView(store: store, initialScope: initialScope) { [weak self] in
             self?.window?.close()
         }
 

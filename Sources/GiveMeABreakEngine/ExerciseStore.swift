@@ -1,12 +1,12 @@
 import Foundation
 
-/// 工作日志持久化（纯 Foundation，可单测）。镜像 `ConfigStore` 范式：原子写 + 容错读。
-/// 路径：~/Library/Application Support/<bundleId>/work-log.json
+/// 运动记录持久化（纯 Foundation，可单测）。镜像 `WorkLogStore` 范式：原子写 + 容错读。
+/// 路径：~/Library/Application Support/<bundleId>/exercise-log.json
 ///
-/// 与 `ConfigStore` 职责正交（配置/状态 vs 工作记录），故独立成类、独立文件，
-/// 但复用同一 Application Support 目录与同一原子写惯用法（单一事实源：目录解析 + 写盘范式）。
-/// 规模量级（数十条/日、数百条/年）下全量读-改-写即可；原子写防半写损坏。
-public final class WorkLogStore {
+/// 与 `WorkLogStore` / `ConfigStore` 职责正交（运动记录 vs 工作记录 vs 配置/状态），故独立成类、
+/// 独立文件，但复用同一 Application Support 目录与同一原子写惯用法（单一事实源：写盘范式）。
+/// 规模量级（数条/日、数百条/年）下全量读-改-写即可；原子写防半写损坏。
+public final class ExerciseStore {
     private let directory: URL
     private let fileManager = FileManager.default
 
@@ -15,18 +15,18 @@ public final class WorkLogStore {
         try fileManager.createDirectory(at: directory, withIntermediateDirectories: true)
     }
 
-    private var workLogURL: URL { directory.appendingPathComponent("work-log.json") }
+    private var exerciseLogURL: URL { directory.appendingPathComponent("exercise-log.json") }
 
     // MARK: - 读
 
     /// 读取全部条目（按时间升序）。缺失/损坏 → `[]`，绝不抛出到调用方。
-    public func loadEntries() -> [WorkLogEntry] {
-        guard let data = try? Data(contentsOf: workLogURL) else { return [] }
+    public func loadEntries() -> [ExerciseEntry] {
+        guard let data = try? Data(contentsOf: exerciseLogURL) else { return [] }
         do {
-            let decoded = try JSONDecoder().decode([WorkLogEntry].self, from: data)
+            let decoded = try JSONDecoder().decode([ExerciseEntry].self, from: data)
             return decoded.sorted { $0.startedAt < $1.startedAt }
         } catch {
-            NSLog("[GiveMeABreak][worklog] 解码失败，回退空列表：\(error)")
+            NSLog("[GiveMeABreak][exercise] 解码失败，回退空列表：\(error)")
             return []
         }
     }
@@ -34,22 +34,22 @@ public final class WorkLogStore {
     // MARK: - 写
 
     /// 追加一条记录（读-改-写，原子落盘）。
-    public func append(_ entry: WorkLogEntry) {
+    public func append(_ entry: ExerciseEntry) {
         var entries = loadEntries()
         entries.append(entry)
         saveAll(entries)
     }
 
     /// 用新列表整体替换（供「清空」等批量操作）。
-    public func replaceAll(_ entries: [WorkLogEntry]) {
+    public func replaceAll(_ entries: [ExerciseEntry]) {
         saveAll(entries.sorted { $0.startedAt < $1.startedAt })
     }
 
     /// 按 `id` 原地更新一条记录（读-改-写，原子落盘，重排升序）。未命中 id → no-op（防御，不抛错）。
-    public func update(_ entry: WorkLogEntry) {
+    public func update(_ entry: ExerciseEntry) {
         var entries = loadEntries()
         guard let idx = entries.firstIndex(where: { $0.id == entry.id }) else {
-            NSLog("[GiveMeABreak][worklog] update 未命中 id=\(entry.id)，忽略")
+            NSLog("[GiveMeABreak][exercise] update 未命中 id=\(entry.id)，忽略")
             return
         }
         entries[idx] = entry
@@ -67,11 +67,11 @@ public final class WorkLogStore {
 
     // MARK: - Private
 
-    private func saveAll(_ entries: [WorkLogEntry]) {
+    private func saveAll(_ entries: [ExerciseEntry]) {
         do {
-            try write(entries, to: workLogURL)
+            try write(entries, to: exerciseLogURL)
         } catch {
-            NSLog("[GiveMeABreak][worklog] 持久化失败：\(error)")
+            NSLog("[GiveMeABreak][exercise] 持久化失败：\(error)")
         }
     }
 
